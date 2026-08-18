@@ -1,0 +1,47 @@
+version: 1
+
+run:
+  mode: evaluate
+
+aws:
+  profile: null
+  discovery_region: us-east-1
+  include_opt_in_regions: false
+
+workload:
+  instance_types: [t4g.medium]
+  product_descriptions: [Linux/UNIX]
+  target_capacity: 1
+  duration_hours: 1
+
+regions:
+  included_regions: ["eu-*", "ap-south-1"]
+  excluded_regions: []
+
+latency:
+  max_rtt_ms: 1500
+  attempts: 7
+  timeout_ms: 3000
+  concurrency: 8
+  metric: median
+  probe: https
+
+pricing:
+  history_days: 7
+  statistic: time_weighted_average
+  currency: USD
+
+placement:
+  enabled: true
+  min_score: 6
+  failure_policy: warn
+
+ranking:
+  price_tie_relative_percent: 1.0
+  alternatives: 5
+
+output:
+  format: table
+  explain_exclusions: true
+  verbose: false
+  log_level: info
