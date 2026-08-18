@@ -1,7 +1,7 @@
+import unittest
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import patch
-import unittest
 
 from aws_spot_price_selector.config import Config
 from aws_spot_price_selector.models import LatencyResult, PricePoint, RegionInfo
@@ -36,8 +36,12 @@ class EvaluationClient:
     def spot_price_history(self, region, instance_types, products, start, end):
         base = Decimal("0.020") if region == "eu-west-1" else Decimal("0.021")
         return [
-            PricePoint(start, base + Decimal("0.002"), region + "a", instance_types[0], products[0]),
-            PricePoint(end - timedelta(hours=1), base, region + "a", instance_types[0], products[0]),
+            PricePoint(
+                start, base + Decimal("0.002"), region + "a", instance_types[0], products[0]
+            ),
+            PricePoint(
+                end - timedelta(hours=1), base, region + "a", instance_types[0], products[0]
+            ),
         ]
 
 

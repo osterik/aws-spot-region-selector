@@ -10,6 +10,7 @@ CLI-инструмент выбирает AWS Region и Availability Zone для
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -e '.[dev]'
+pre-commit install
 ```
 
 Настройте стандартные AWS credentials/profile, отредактируйте `config.yml` и запустите:
@@ -57,6 +58,21 @@ spot-region-selector validate-config
 ec2:DescribeRegions
 ec2:DescribeSpotPriceHistory
 ec2:GetSpotPlacementScores
+```
+
+## Проверки перед коммитом
+
+После `pre-commit install` каждый ручной коммит запускает:
+
+- проверки YAML/TOML, конфликтов слияния, больших файлов и whitespace;
+- Ruff lint с безопасными автоисправлениями;
+- Ruff formatter;
+- полный набор pytest.
+
+Запуск вручную для всего репозитория:
+
+```shell
+pre-commit run --all-files
 ```
 
 ## Исключение регионов

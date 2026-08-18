@@ -1,6 +1,6 @@
+import unittest
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-import unittest
 
 from aws_spot_price_selector.models import Candidate, LatencyResult, PricePoint
 from aws_spot_price_selector.pricing import calculate_price_stats

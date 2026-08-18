@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
-import re
 from typing import Any
 
 from .errors import ConfigError
@@ -144,17 +144,17 @@ def load_config(path: str | Path = "config.yml") -> Config:
 def validate_config(config: Config) -> None:
     if config.run.mode not in {"evaluate", "latency", "list-regions", "validate-config"}:
         raise ConfigError("run.mode must be evaluate, latency, list-regions, or validate-config")
-    included_patterns = _validate_region_patterns(
-        config.regions.included_regions, "included"
-    )
-    excluded_patterns = _validate_region_patterns(
-        config.regions.excluded_regions, "excluded"
-    )
+    included_patterns = _validate_region_patterns(config.regions.included_regions, "included")
+    excluded_patterns = _validate_region_patterns(config.regions.excluded_regions, "excluded")
     config.regions.included_regions = list(dict.fromkeys(included_patterns))
     config.regions.excluded_regions = list(dict.fromkeys(excluded_patterns))
     if not config.regions.included_regions:
         raise ConfigError("At least one included region pattern is required")
-    if config.latency.attempts < 1 or config.latency.timeout_ms < 1 or config.latency.concurrency < 1:
+    if (
+        config.latency.attempts < 1
+        or config.latency.timeout_ms < 1
+        or config.latency.concurrency < 1
+    ):
         raise ConfigError("latency attempts, timeout_ms, and concurrency must be positive")
     if config.latency.max_rtt_ms < 0 or config.latency.metric not in {"median", "p95"}:
         raise ConfigError("Invalid latency threshold or metric")

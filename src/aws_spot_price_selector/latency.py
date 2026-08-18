@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import math
 import logging
+import math
 import ssl
 import statistics
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import suppress
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from .config import LatencyConfig
 from .models import LatencyResult, RegionInfo
-
 
 LOGGER = logging.getLogger(__name__)
 
@@ -47,10 +47,8 @@ def measure_region(region: RegionInfo, config: LatencyConfig) -> LatencyResult:
     LOGGER.debug("Starting RTT probe for %s", region.name)
     url = endpoint_for(region)
     timeout = config.timeout_ms / 1000
-    try:
+    with suppress(OSError, URLError, TimeoutError):
         _attempt(url, timeout)  # warm-up; excluded from statistics
-    except (OSError, URLError, TimeoutError):
-        pass
     values = []
     errors = []
     for _ in range(config.attempts):

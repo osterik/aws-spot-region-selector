@@ -11,7 +11,6 @@ from .logging_config import configure_logging
 from .output import render
 from .pipeline import evaluate, latency_only
 
-
 COMMANDS = {"evaluate", "latency", "list-regions", "validate-config"}
 LOGGER = logging.getLogger(__name__)
 
@@ -36,7 +35,9 @@ def apply_overrides(config: Config, args: argparse.Namespace) -> str:
     if args.profile is not None:
         config.aws.profile = args.profile
     if args.instance_types is not None:
-        config.workload.instance_types = [item.strip() for item in args.instance_types.split(",") if item.strip()]
+        config.workload.instance_types = [
+            item.strip() for item in args.instance_types.split(",") if item.strip()
+        ]
     if args.max_rtt_ms is not None:
         config.latency.max_rtt_ms = args.max_rtt_ms
     if args.history_days is not None:

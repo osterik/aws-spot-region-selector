@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-import logging
 
 from .config import Config, excluded_by, included_by
 from .errors import NoCandidatesError
@@ -11,7 +11,6 @@ from .latency import measure_regions
 from .models import Candidate, Exclusion, LatencyResult, RegionInfo
 from .pricing import calculate_price_stats, group_price_points
 from .ranking import rank_candidates
-
 
 LOGGER = logging.getLogger(__name__)
 
@@ -37,13 +36,9 @@ def discover_and_filter(client, config: Config) -> tuple[list[RegionInfo], list[
         included_matches = included_by(region.name, config.regions)
         matches = excluded_by(region.name, config.regions)
         if matches:
-            exclusions.append(
-                Exclusion(region.name, "configured_exclusion", ", ".join(matches))
-            )
+            exclusions.append(Exclusion(region.name, "configured_exclusion", ", ".join(matches)))
         elif not included_matches:
-            exclusions.append(
-                Exclusion(region.name, "not_included", "no include rule matched")
-            )
+            exclusions.append(Exclusion(region.name, "not_included", "no include rule matched"))
         else:
             included.append(region)
     LOGGER.info(
@@ -109,9 +104,7 @@ def evaluate(client, config: Config, now: datetime | None = None) -> EvaluationR
         )
         score = scores.get(region_name) if config.placement.enabled else None
         if score is not None and score < config.placement.min_score:
-            exclusions.append(
-                Exclusion(region_name, "placement_score_below_minimum", str(score))
-            )
+            exclusions.append(Exclusion(region_name, "placement_score_below_minimum", str(score)))
             continue
         if (
             config.placement.enabled
@@ -140,7 +133,11 @@ def evaluate(client, config: Config, now: datetime | None = None) -> EvaluationR
             candidate_warnings = []
             if stats.incomplete_history:
                 candidate_warnings.append("incomplete_price_history")
-            if config.placement.enabled and score is None and config.placement.failure_policy == "warn":
+            if (
+                config.placement.enabled
+                and score is None
+                and config.placement.failure_policy == "warn"
+            ):
                 candidate_warnings.append("placement_score_unavailable")
             candidates.append(
                 Candidate(

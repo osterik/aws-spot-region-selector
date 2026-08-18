@@ -7,9 +7,7 @@ from .models import Candidate
 
 def _tie_key(candidate: Candidate):
     return (
-        candidate.latency.median_ms
-        if candidate.latency.median_ms is not None
-        else float("inf"),
+        candidate.latency.median_ms if candidate.latency.median_ms is not None else float("inf"),
         -(candidate.placement_score if candidate.placement_score is not None else -1),
         candidate.prices.time_weighted_p95_price,
         candidate.region,

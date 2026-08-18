@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Iterable
 from datetime import datetime
 from decimal import Decimal
-from typing import Iterable
 
 from .models import PricePoint, PriceStats, PriceTrend
 
 
-def group_price_points(points: Iterable[PricePoint]) -> dict[tuple[str, str, str], list[PricePoint]]:
+def group_price_points(
+    points: Iterable[PricePoint],
+) -> dict[tuple[str, str, str], list[PricePoint]]:
     grouped: dict[tuple[str, str, str], list[PricePoint]] = defaultdict(list)
     for point in points:
         key = (point.availability_zone, point.instance_type, point.product_description)
@@ -27,7 +29,9 @@ def _weighted_quantile(intervals: list[tuple[Decimal, float]], quantile: float) 
     return max(intervals, key=lambda item: item[0])[0]
 
 
-def calculate_price_stats(points: list[PricePoint], start: datetime, end: datetime) -> PriceStats | None:
+def calculate_price_stats(
+    points: list[PricePoint], start: datetime, end: datetime
+) -> PriceStats | None:
     if not points or end <= start:
         return None
     ordered = sorted(points, key=lambda point: point.timestamp)
@@ -64,9 +68,7 @@ def calculate_price_stats(points: list[PricePoint], start: datetime, end: dateti
         else:
             direction, symbol = "flat", "→"
         percent = (delta / previous.price * Decimal("100")) if previous.price else None
-        trend = PriceTrend(
-            direction, symbol, delta, percent, latest.timestamp, previous.timestamp
-        )
+        trend = PriceTrend(direction, symbol, delta, percent, latest.timestamp, previous.timestamp)
     p50 = _weighted_quantile(intervals, 0.50)
     p95 = _weighted_quantile(intervals, 0.95)
     ranking = latest.price * Decimal("0.5") + average * Decimal("0.3") + p95 * Decimal("0.2")

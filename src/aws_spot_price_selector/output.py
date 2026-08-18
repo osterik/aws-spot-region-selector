@@ -1,20 +1,22 @@
 from __future__ import annotations
 
 import json
-from typing import Iterable
 
 from .config import Config
-from .models import Candidate, Exclusion, LatencyResult, jsonable
+from .models import Candidate, jsonable
 from .pipeline import EvaluationResult
 
 
 def _table(headers: list[str], rows: list[list[str]]) -> str:
     widths = [len(header) for header in headers]
     for row in rows:
-        widths = [max(width, len(cell)) for width, cell in zip(widths, row)]
-    lines = ["  ".join(header.ljust(width) for header, width in zip(headers, widths))]
+        widths = [max(width, len(cell)) for width, cell in zip(widths, row, strict=True)]
+    lines = ["  ".join(header.ljust(width) for header, width in zip(headers, widths, strict=True))]
     lines.append("  ".join("-" * width for width in widths))
-    lines.extend("  ".join(cell.ljust(width) for cell, width in zip(row, widths)) for row in rows)
+    lines.extend(
+        "  ".join(cell.ljust(width) for cell, width in zip(row, widths, strict=True))
+        for row in rows
+    )
     return "\n".join(lines)
 
 

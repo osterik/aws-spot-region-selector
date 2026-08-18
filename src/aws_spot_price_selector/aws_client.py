@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from decimal import Decimal
-import logging
-from typing import Any, Iterable
+from typing import Any
 
 from .errors import AwsAuthenticationError, SelectorError
 from .models import PricePoint, RegionInfo
-
 
 LOGGER = logging.getLogger(__name__)
 
@@ -41,7 +40,12 @@ class AwsClient:
             raise AwsAuthenticationError(f"AWS authentication failed: {exc}") from exc
         response = getattr(exc, "response", {})
         code = response.get("Error", {}).get("Code", "") if isinstance(response, dict) else ""
-        if code in {"AuthFailure", "UnauthorizedOperation", "AccessDenied", "AccessDeniedException"}:
+        if code in {
+            "AuthFailure",
+            "UnauthorizedOperation",
+            "AccessDenied",
+            "AccessDeniedException",
+        }:
             raise AwsAuthenticationError(f"AWS authorization failed: {code}") from exc
         raise SelectorError(f"AWS request failed: {exc}") from exc
 
