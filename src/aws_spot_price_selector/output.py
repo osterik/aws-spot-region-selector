@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 
 from .config import Config
-from .models import Candidate, jsonable
+from .models import Candidate, RegionalSummary, jsonable
 from .pipeline import EvaluationResult
 
 
@@ -33,6 +33,18 @@ def _trend(candidate: Candidate) -> str:
     sign = "+" if trend.absolute_change > 0 else ""
     percent = "?" if trend.percent_change is None else f"{sign}{trend.percent_change:.1f}%"
     return f"{trend.symbol} {sign}{_money(trend.absolute_change)} ({percent})"
+
+
+def _summary_trend(summary: RegionalSummary) -> str:
+    if summary.trend_absolute_change is None:
+        return "?"
+    sign = "+" if summary.trend_absolute_change > 0 else ""
+    percent = (
+        "?"
+        if summary.trend_percent_change is None
+        else f"{sign}{summary.trend_percent_change:.1f}%"
+    )
+    return f"{summary.trend_symbol} {sign}{_money(summary.trend_absolute_change)} ({percent})"
 
 
 def render_latency(result: EvaluationResult, config: Config) -> str:
@@ -87,6 +99,39 @@ def render_evaluation(result: EvaluationResult, config: Config) -> str:
             "Reason: lowest estimated compute cost within the configured constraints; "
             "price ties prefer lower RTT."
         )
+    if result.regional_summaries:
+        summary_rows = []
+        for item in result.regional_summaries:
+            summary_rows.append(
+                [
+                    item.region,
+                    item.instance_type,
+                    str(item.availability_zone_count),
+                    "-" if item.latency_median_ms is None else f"{item.latency_median_ms:.1f} ms",
+                    _money(item.average_latest_price),
+                    _summary_trend(item),
+                    _money(item.average_historical_price),
+                    _money(item.average_p95_price),
+                    _money(item.average_estimated_compute_cost),
+                    "-" if item.placement_score is None else str(item.placement_score),
+                ]
+            )
+        text += "\n\nRegional averages across Availability Zones:\n"
+        text += _table(
+            [
+                "REGION",
+                "TYPE",
+                "AZS",
+                "RTT_MED",
+                "AVG_LATEST",
+                "AVG_TREND",
+                "AVG_HISTORY",
+                "AVG_P95",
+                "AVG_EST_COST",
+                "SPS",
+            ],
+            summary_rows,
+        )
     if result.warnings:
         text += "\nWarnings:\n" + "\n".join(f"- {warning}" for warning in result.warnings)
     if config.output.explain_exclusions and result.exclusions:
@@ -111,6 +156,7 @@ def render_json(result: EvaluationResult, config: Config) -> str:
         },
         "recommendation": result.recommendation,
         "alternatives": result.alternatives,
+        "regional_summaries": result.regional_summaries,
         "latencies": result.latencies,
         "excluded_regions": result.exclusions,
         "warnings": result.warnings,

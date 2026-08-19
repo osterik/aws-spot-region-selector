@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from aws_spot_price_selector.config import Config
 from aws_spot_price_selector.models import LatencyResult, PricePoint, RegionInfo
-from aws_spot_price_selector.output import render_json
+from aws_spot_price_selector.output import render_evaluation, render_json
 from aws_spot_price_selector.pipeline import evaluate, latency_only
 
 
@@ -93,9 +93,14 @@ class LatencyPipelineTests(unittest.TestCase):
         self.assertEqual(result.recommendation.region, "eu-west-1")
         self.assertEqual(result.recommendation.prices.latest_price, Decimal("0.020"))
         self.assertEqual(result.recommendation.prices.trend.symbol, "↓")
+        self.assertEqual(len(result.regional_summaries), 2)
         rendered = render_json(result, config)
         self.assertIn('"direction": "down"', rendered)
         self.assertIn('"latest_price": "0.020"', rendered)
+        self.assertIn('"regional_summaries": [', rendered)
+        table = render_evaluation(result, config)
+        self.assertIn("Regional averages across Availability Zones:", table)
+        self.assertIn("AVG_LATEST", table)
 
 
 if __name__ == "__main__":

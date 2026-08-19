@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
+from dataclasses import asdict
 
 from . import __version__
 from .aws_client import AwsClient
 from .config import Config, load_config, validate_config
 from .errors import SelectorError
 from .logging_config import configure_logging
+from .models import jsonable
 from .output import render
 from .pipeline import evaluate, latency_only
 
@@ -21,9 +24,11 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--config", default="config.yml")
     result.add_argument("--profile")
     result.add_argument("--instance-types")
+    result.add_argument("--product-descriptions")
     result.add_argument("--max-rtt-ms", type=float)
     result.add_argument("--history-days", type=int)
     result.add_argument("--duration-hours", type=float)
+    result.add_argument("--alternatives", type=int)
     result.add_argument("--output", choices=["table", "json"])
     result.add_argument("--log-level", choices=["error", "warning", "info", "debug"])
     result.add_argument("--verbose", action="store_true", default=None)
@@ -38,12 +43,18 @@ def apply_overrides(config: Config, args: argparse.Namespace) -> str:
         config.workload.instance_types = [
             item.strip() for item in args.instance_types.split(",") if item.strip()
         ]
+    if args.product_descriptions is not None:
+        config.workload.product_descriptions = [
+            item.strip() for item in args.product_descriptions.split(",") if item.strip()
+        ]
     if args.max_rtt_ms is not None:
         config.latency.max_rtt_ms = args.max_rtt_ms
     if args.history_days is not None:
         config.pricing.history_days = args.history_days
     if args.duration_hours is not None:
         config.workload.duration_hours = args.duration_hours
+    if args.alternatives is not None:
+        config.ranking.alternatives = args.alternatives
     if args.output is not None:
         config.output.format = args.output
     if args.log_level is not None:
@@ -58,6 +69,16 @@ def apply_overrides(config: Config, args: argparse.Namespace) -> str:
     return mode
 
 
+def log_run_parameters(config: Config) -> None:
+    """Log the effective, validated configuration without AWS credentials."""
+    safe_config = asdict(config)
+    # The profile name is useful for diagnostics; credentials are never part of Config.
+    LOGGER.info(
+        "Effective run parameters:\n%s",
+        json.dumps(jsonable(safe_config), ensure_ascii=False, indent=2, sort_keys=True),
+    )
+
+
 def run(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     configure_logging(args.log_level or "info")
@@ -66,6 +87,7 @@ def run(argv: list[str] | None = None) -> int:
         mode = apply_overrides(config, args)
         configure_logging(config.output.log_level)
         LOGGER.info("Configuration loaded; selected mode: %s", mode)
+        log_run_parameters(config)
         if mode == "validate-config":
             LOGGER.info("Configuration validation completed")
             print(f"Configuration is valid: {args.config}")

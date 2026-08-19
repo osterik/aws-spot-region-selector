@@ -28,7 +28,7 @@ workload:
 regions:
   # Allowlist полных Region ID и glob-масок. "*" разрешает все доступные регионы.
   # Несколько правил объединяются по OR; поддерживается только метасимвол "*".
-  included_regions: ["eu-*", "ap-south-1"]
+  included_regions: ["eu-*", "ap-south-*", "il-*"]
   # Denylist с тем же синтаксисом. Исключения всегда имеют приоритет над включениями.
   excluded_regions: []
 
@@ -70,7 +70,7 @@ ranking:
   # При ценовой ничьей побеждает кандидат с меньшим RTT.
   price_tie_relative_percent: 5.0
   # Максимальное число вариантов после основной рекомендации.
-  alternatives: 10
+  alternatives: 999
 
 output:
   # Формат итогового stdout: table или json. Сообщения прогресса идут в stderr.

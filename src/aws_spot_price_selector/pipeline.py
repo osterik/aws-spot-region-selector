@@ -5,10 +5,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
+from .aggregation import summarize_regions
 from .config import Config, excluded_by, included_by
 from .errors import NoCandidatesError
 from .latency import measure_regions
-from .models import Candidate, Exclusion, LatencyResult, RegionInfo
+from .models import Candidate, Exclusion, LatencyResult, RegionalSummary, RegionInfo
 from .pricing import calculate_price_stats, group_price_points
 from .ranking import rank_candidates
 
@@ -22,6 +23,7 @@ class EvaluationResult:
     latencies: list[LatencyResult] = field(default_factory=list)
     recommendation: Candidate | None = None
     alternatives: list[Candidate] = field(default_factory=list)
+    regional_summaries: list[RegionalSummary] = field(default_factory=list)
     exclusions: list[Exclusion] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
@@ -168,6 +170,7 @@ def evaluate(client, config: Config, now: datetime | None = None) -> EvaluationR
         latencies=latencies,
         recommendation=ranked[0],
         alternatives=ranked[1 : 1 + config.ranking.alternatives],
+        regional_summaries=summarize_regions(ranked),
         exclusions=exclusions,
         warnings=warnings,
     )

@@ -83,6 +83,24 @@ class Exclusion:
     detail: str
 
 
+@dataclass(frozen=True)
+class RegionalSummary:
+    region: str
+    instance_type: str
+    product_description: str
+    availability_zone_count: int
+    latency_median_ms: float | None
+    placement_score: int | None
+    average_latest_price: Decimal
+    average_historical_price: Decimal
+    average_p95_price: Decimal
+    average_estimated_compute_cost: Decimal
+    trend_direction: str
+    trend_symbol: str
+    trend_absolute_change: Decimal | None
+    trend_percent_change: Decimal | None
+
+
 def jsonable(value: Any) -> Any:
     if hasattr(value, "__dataclass_fields__"):
         return jsonable(asdict(value))
