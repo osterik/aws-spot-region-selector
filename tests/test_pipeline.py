@@ -78,6 +78,26 @@ class LatencyPipelineTests(unittest.TestCase):
         self.assertEqual(result.exclusions[0].reason, "not_included")
 
     @patch("aws_spot_price_selector.pipeline.measure_regions")
+    def test_rtt_exclusion_includes_measured_value(self, measure):
+        measure.return_value = [
+            LatencyResult("eu-central-1", 120.25, 145.75, 5, 5, "above_limit"),
+            LatencyResult("eu-west-1", 40, 45, 5, 5, "eligible"),
+        ]
+        config = Config()
+        config.workload.instance_types = ["t4g.medium"]
+        config.regions.excluded_regions = ["us-*"]
+
+        result = evaluate(EvaluationClient(), config)
+
+        exclusion = next(item for item in result.exclusions if item.region == "eu-central-1")
+        self.assertEqual(exclusion.reason, "above_limit")
+        self.assertEqual(exclusion.detail, "RTT 120.2 ms above limit 100.0 ms (median)")
+        self.assertIn(
+            "eu-central-1: above_limit (RTT 120.2 ms above limit 100.0 ms (median))",
+            render_evaluation(result, config),
+        )
+
+    @patch("aws_spot_price_selector.pipeline.measure_regions")
     def test_full_evaluation_includes_latest_price_trend_and_json(self, measure):
         measure.return_value = [
             LatencyResult("eu-central-1", 20, 25, 7, 7, "eligible"),
@@ -101,6 +121,14 @@ class LatencyPipelineTests(unittest.TestCase):
         table = render_evaluation(result, config)
         self.assertIn("Regional averages across Availability Zones:", table)
         self.assertIn("AVG_LATEST", table)
+        self.assertIn("AVG_HIST", table)
+        self.assertIn("AVG_EST", table)
+        self.assertNotIn("AVG_HISTORY", table)
+        self.assertNotIn("AVG_EST_COST", table)
+        self.assertIn("$0.0200", table)
+        self.assertRegex(table, r"(?m)^eu-west-1\s+a\s+t4g\.medium")
+        self.assertIn("Recommended: eu-west-1 / a / t4g.medium", table)
+        self.assertNotIn("eu-west-1a", table)
 
 
 if __name__ == "__main__":

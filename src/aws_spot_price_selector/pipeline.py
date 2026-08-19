@@ -72,7 +72,14 @@ def evaluate(client, config: Config, now: datetime | None = None) -> EvaluationR
     eligible_latency = {item.region: item for item in latencies if item.status == "eligible"}
     for item in latencies:
         if item.status != "eligible":
-            exclusions.append(Exclusion(item.region, item.status, item.error or "RTT above limit"))
+            detail = item.error
+            if item.status == "above_limit":
+                measured_rtt = item.median_ms if config.latency.metric == "median" else item.p95_ms
+                detail = (
+                    f"RTT {measured_rtt:.1f} ms above limit "
+                    f"{config.latency.max_rtt_ms:.1f} ms ({config.latency.metric})"
+                )
+            exclusions.append(Exclusion(item.region, item.status, detail or "RTT unavailable"))
     if not eligible_latency:
         raise NoCandidatesError("No region passed the latency filter")
 

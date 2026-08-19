@@ -22,8 +22,17 @@ def _table(headers: list[str], rows: list[list[str]]) -> str:
 
 def _money(value) -> str:
     sign = "-" if value < 0 else ""
-    amount = f"{abs(value):.6f}".rstrip("0").rstrip(".")
+    amount = f"{abs(value):.4f}"
     return f"{sign}${amount}"
+
+
+def _az_number(region: str, availability_zone: str) -> str:
+    prefix = f"{region}"
+    if availability_zone.startswith(prefix):
+        suffix = availability_zone[len(prefix) :]
+        if suffix:
+            return suffix
+    return availability_zone
 
 
 def _trend(candidate: Candidate) -> str:
@@ -76,7 +85,7 @@ def render_evaluation(result: EvaluationResult, config: Config) -> str:
         rows.append(
             [
                 item.region,
-                item.availability_zone,
+                _az_number(item.region, item.availability_zone),
                 item.instance_type,
                 f"{item.latency.median_ms:.1f} ms",
                 _money(item.prices.latest_price),
@@ -94,7 +103,8 @@ def render_evaluation(result: EvaluationResult, config: Config) -> str:
     selected = result.recommendation
     if selected:
         text += (
-            f"\n\nRecommended: {selected.region} / {selected.availability_zone} / "
+            f"\n\nRecommended: {selected.region} / "
+            f"{_az_number(selected.region, selected.availability_zone)} / "
             f"{selected.instance_type}\n"
             "Reason: lowest estimated compute cost within the configured constraints; "
             "price ties prefer lower RTT."
@@ -125,9 +135,9 @@ def render_evaluation(result: EvaluationResult, config: Config) -> str:
                 "RTT_MED",
                 "AVG_LATEST",
                 "AVG_TREND",
-                "AVG_HISTORY",
+                "AVG_HIST",
                 "AVG_P95",
-                "AVG_EST_COST",
+                "AVG_EST",
                 "SPS",
             ],
             summary_rows,
