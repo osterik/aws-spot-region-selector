@@ -20,7 +20,8 @@ regions:
 
 latency:
   max_rtt_ms: 100
-  attempts: 7
+  warmup_attempts: 3
+  attempts: 5
   timeout_ms: 1500
   concurrency: 8
   metric: median

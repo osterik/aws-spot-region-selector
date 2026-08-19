@@ -47,8 +47,9 @@ def measure_region(region: RegionInfo, config: LatencyConfig) -> LatencyResult:
     LOGGER.debug("Starting RTT probe for %s", region.name)
     url = endpoint_for(region)
     timeout = config.timeout_ms / 1000
-    with suppress(OSError, URLError, TimeoutError):
-        _attempt(url, timeout)  # warm-up; excluded from statistics
+    for _ in range(config.warmup_attempts):
+        with suppress(OSError, URLError, TimeoutError):
+            _attempt(url, timeout)  # warm-up; excluded from statistics
     values = []
     errors = []
     for _ in range(config.attempts):
@@ -94,8 +95,9 @@ def measure_region(region: RegionInfo, config: LatencyConfig) -> LatencyResult:
 
 def measure_regions(regions: list[RegionInfo], config: LatencyConfig) -> list[LatencyResult]:
     LOGGER.info(
-        "Measuring RTT to %d regions (%d attempts each, concurrency %d)",
+        "Measuring RTT to %d regions (%d warm-up + %d measured requests, concurrency %d)",
         len(regions),
+        config.warmup_attempts,
         config.attempts,
         config.concurrency,
     )

@@ -37,7 +37,8 @@ class RegionsConfig:
 @dataclass
 class LatencyConfig:
     max_rtt_ms: float = 100.0
-    attempts: int = 7
+    warmup_attempts: int = 3
+    attempts: int = 5
     timeout_ms: int = 1500
     concurrency: int = 8
     metric: str = "median"
@@ -151,11 +152,15 @@ def validate_config(config: Config) -> None:
     if not config.regions.included_regions:
         raise ConfigError("At least one included region pattern is required")
     if (
-        config.latency.attempts < 1
+        config.latency.warmup_attempts < 0
+        or config.latency.attempts < 1
         or config.latency.timeout_ms < 1
         or config.latency.concurrency < 1
     ):
-        raise ConfigError("latency attempts, timeout_ms, and concurrency must be positive")
+        raise ConfigError(
+            "latency warmup_attempts must be non-negative; attempts, timeout_ms, "
+            "and concurrency must be positive"
+        )
     if config.latency.max_rtt_ms < 0 or config.latency.metric not in {"median", "p95"}:
         raise ConfigError("Invalid latency threshold or metric")
     if config.latency.probe != "https":
