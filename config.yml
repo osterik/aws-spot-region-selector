@@ -17,9 +17,9 @@ aws:
 
 workload:
   # Взаимозаменяемые типы инстансов; рекомендация выберет конкретный тип и AZ.
-  instance_types: [t4g.medium]
+  instance_types: [t3.medium, t4g.medium]
   # ОС/лицензия должна точно соответствовать ProductDescription из EC2 Spot API.
-  product_descriptions: ["Linux/UNIX (Amazon VPC)"]
+  product_descriptions: ["Linux/UNIX"]
   # Требуемая ёмкость для Spot Placement Score. В v1 одна единица равна одному инстансу.
   target_capacity: 1
   # Ожидаемая длительность задачи в часах; используется для estimated compute cost.
@@ -72,7 +72,7 @@ ranking:
   # При ценовой ничьей побеждает кандидат с меньшим RTT.
   price_tie_relative_percent: 5.0
   # Максимальное число вариантов после основной рекомендации.
-  alternatives: 999
+  alternatives: 20
 
 output:
   # Формат итогового stdout: table или json. Сообщения прогресса идут в stderr.
