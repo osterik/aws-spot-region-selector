@@ -3,7 +3,9 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import sys
 from dataclasses import asdict
+from pathlib import Path
 
 from . import __version__
 from .aws_client import AwsClient
@@ -15,24 +17,138 @@ from .output import render
 from .pipeline import evaluate, latency_only
 
 COMMANDS = {"evaluate", "latency", "list-regions", "validate-config"}
+DEFAULT_CONFIG = "./config.yml"
 LOGGER = logging.getLogger(__name__)
 
 
+class HelpFormatter(argparse.RawDescriptionHelpFormatter):
+    def _format_action_invocation(self, action: argparse.Action) -> str:
+        if not action.option_strings or action.nargs == 0:
+            return super()._format_action_invocation(action)
+
+        default = self._get_default_metavar_for_optional(action)
+        arguments = self._format_args(action, default)
+        options = [
+            f"{option} {arguments}" if option.startswith("--") else option
+            for option in action.option_strings
+        ]
+        return ", ".join(options)
+
+
 def parser() -> argparse.ArgumentParser:
-    result = argparse.ArgumentParser(prog="spot-region-selector")
-    result.add_argument("command", nargs="?", choices=sorted(COMMANDS))
-    result.add_argument("--config", default="config.yml")
-    result.add_argument("--profile")
-    result.add_argument("--instance-types")
-    result.add_argument("--product-descriptions")
-    result.add_argument("--max-rtt-ms", type=float)
-    result.add_argument("--history-days", type=int)
-    result.add_argument("--duration-hours", type=float)
-    result.add_argument("--alternatives", type=int)
-    result.add_argument("--output", choices=["table", "json"])
-    result.add_argument("--log-level", choices=["error", "warning", "info", "debug"])
-    result.add_argument("--verbose", action="store_true", default=None)
-    result.add_argument("--version", action="version", version=__version__)
+    result = argparse.ArgumentParser(
+        prog="spot-region-selector",
+        description=(
+            "Выбирает AWS-регион для Spot-нагрузки по задержке, цене и Spot Placement Score."
+        ),
+        epilog=(
+            "Примеры:\n"
+            "  spot-region-selector evaluate\n"
+            "  spot-region-selector latency -c ./config.yml\n"
+            "  spot-region-selector evaluate -i t4g.medium,c7g.large -o json\n\n"
+            "Параметры CLI переопределяют значения из файла конфигурации."
+        ),
+        formatter_class=HelpFormatter,
+        add_help=False,
+    )
+    result._positionals.title = "команды"
+    result._optionals.title = "опции"
+    result.add_argument(
+        "-h",
+        "--help",
+        action="help",
+        help="показать эту справку и завершить работу",
+    )
+    result.add_argument(
+        "command",
+        nargs="?",
+        choices=sorted(COMMANDS),
+        help=(
+            "режим работы: evaluate — полная оценка; latency — только RTT; "
+            "list-regions — список регионов; validate-config — проверка конфигурации"
+        ),
+    )
+    result.add_argument(
+        "-c",
+        "--config",
+        default=DEFAULT_CONFIG,
+        metavar="CONFIG",
+        help="путь к файлу конфигурации, ./config.yml по умолчанию",
+    )
+    result.add_argument(
+        "-p",
+        "--profile",
+        metavar="PROFILE",
+        help="имя AWS-профиля; переопределяет aws.profile из конфигурации",
+    )
+    result.add_argument(
+        "-i",
+        "--instance-types",
+        metavar="TYPES",
+        help="типы EC2 через запятую, например t4g.medium,c7g.large",
+    )
+    result.add_argument(
+        "-P",
+        "--product-descriptions",
+        metavar="PRODUCTS",
+        help='описания продуктов Spot API через запятую, например "Linux/UNIX"',
+    )
+    result.add_argument(
+        "-r",
+        "--max-rtt-ms",
+        type=float,
+        metavar="MS",
+        help="максимально допустимый RTT в миллисекундах",
+    )
+    result.add_argument(
+        "-H",
+        "--history-days",
+        type=int,
+        metavar="DAYS",
+        help="глубина анализа Spot Price History в днях",
+    )
+    result.add_argument(
+        "-t",
+        "--duration-hours",
+        type=float,
+        metavar="HOURS",
+        help="ожидаемая продолжительность нагрузки в часах",
+    )
+    result.add_argument(
+        "-a",
+        "--alternatives",
+        type=int,
+        metavar="COUNT",
+        help="максимальное число альтернатив после основной рекомендации",
+    )
+    result.add_argument(
+        "-o",
+        "--output",
+        choices=["table", "json"],
+        metavar="FORMAT",
+        help="формат итогового stdout: table или json",
+    )
+    result.add_argument(
+        "-l",
+        "--log-level",
+        choices=["error", "warning", "info", "debug"],
+        metavar="LEVEL",
+        help="уровень сообщений в stderr: error, warning, info или debug",
+    )
+    result.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=None,
+        help="включить подробные debug-сообщения; эквивалент --log-level debug",
+    )
+    result.add_argument(
+        "-V",
+        "--version",
+        action="version",
+        version=__version__,
+        help="показать версию приложения и завершить работу",
+    )
     return result
 
 
@@ -80,7 +196,12 @@ def log_run_parameters(config: Config) -> None:
 
 
 def run(argv: list[str] | None = None) -> int:
-    args = parser().parse_args(argv)
+    effective_argv = sys.argv[1:] if argv is None else argv
+    argument_parser = parser()
+    if not effective_argv and not Path(DEFAULT_CONFIG).is_file():
+        argument_parser.print_help()
+        return 0
+    args = argument_parser.parse_args(effective_argv)
     configure_logging(args.log_level or "info")
     try:
         config = load_config(args.config)
