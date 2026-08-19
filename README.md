@@ -67,6 +67,7 @@ ec2:GetSpotPlacementScores
 - проверки YAML/TOML, конфликтов слияния, больших файлов и whitespace;
 - Ruff lint с безопасными автоисправлениями;
 - Ruff formatter;
+- Gitleaks для поиска случайно добавленных credentials, токенов и других секретов;
 - полный набор pytest.
 
 Запуск вручную для всего репозитория:
