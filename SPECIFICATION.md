@@ -1,70 +1,71 @@
-# AWS Spot Region Selector — спецификация продукта и разработки
+# AWS Spot Region Selector — Product and Development Specification
 
-Статус: Draft 1.0
-Дата: 2026-08-18
+Status: Draft 1.0
+Date: 2026-08-18
+Russian version: [SPECIFICATION_RU.md](SPECIFICATION_RU.md)
 
-## 1. Назначение
+## 1. Purpose
 
-`aws-spot-price-selector` — консольный инструмент, который выбирает предпочтительный AWS Region для краткосрочной рабочей нагрузки на EC2 Spot Instances. Выбор является компромиссом между сетевой задержкой от машины, где запущен инструмент, стоимостью Spot, устойчивостью цены и вероятностью получения требуемой ёмкости.
+`aws-spot-price-selector` is a command-line tool that selects a preferred AWS Region for a short-lived EC2 Spot Instance workload. The selection balances network latency from the machine running the tool, Spot cost, price stability, and the likelihood of obtaining the requested capacity.
 
-Инструмент только анализирует варианты и выдаёт рекомендацию. Он не создаёт EC2-инстансы, Spot Fleet, Auto Scaling Group или другие AWS-ресурсы.
+The tool only analyzes options and returns a recommendation. It does not create EC2 instances, Spot Fleets, Auto Scaling Groups, or any other AWS resources.
 
-## 2. Термины
+## 2. Terminology
 
-- **Region** — AWS Region ID, например `eu-west-1`.
-- **Availability Zone (AZ)** — зона доступности внутри региона, например `eu-west-1a`.
-- **RTT** — полное время прохождения сетевого запроса туда и обратно.
-- **SPS** — EC2 Spot Placement Score от 1 до 10.
-- **Candidate** — сочетание Region, AZ и instance type, прошедшее обязательные фильтры.
+- **Region** — an AWS Region ID, such as `eu-west-1`.
+- **Availability Zone (AZ)** — an availability zone within a Region, such as `eu-west-1a`.
+- **RTT** — total round-trip time for a network request.
+- **SPS** — EC2 Spot Placement Score, from 1 to 10.
+- **Candidate** — a Region/AZ/instance-type combination that passed all mandatory filters.
 
-## 3. Цели первой версии
+## 3. Version 1 goals
 
-Версия 1 должна:
+Version 1 must:
 
-1. Получать актуальный список доступных AWS-регионов.
-2. Включать и исключать регионы по точному Region ID или glob-маске.
-3. Измерять сетевую задержку до оставшихся регионов.
-4. Отбрасывать регионы с задержкой выше заданного предела.
-5. Получать Spot Price History для заданных типов инстансов.
-6. Рассчитывать статистику цен за заданный период с учётом длительности действия каждой цены.
-7. По возможности учитывать Spot Placement Score.
-8. Ранжировать допустимые варианты и выдавать одну основную рекомендацию и список альтернатив.
-9. Объяснять причины включения, исключения и итогового выбора.
-10. Поддерживать человекочитаемый и JSON-вывод.
+1. Retrieve the current list of available AWS Regions.
+2. Include and exclude Regions by exact Region ID or glob pattern.
+3. Measure network latency to the remaining Regions.
+4. Reject Regions whose latency exceeds a configured limit.
+5. Retrieve Spot Price History for configured instance types.
+6. Calculate price statistics for a configured period while accounting for how long each price was active.
+7. Use Spot Placement Score when available.
+8. Rank eligible candidates and return one primary recommendation plus alternatives.
+9. Explain inclusion, exclusion, and final-selection decisions.
+10. Support human-readable table output and machine-readable JSON.
 
-## 4. Не входит в первую версию
+## 4. Out of scope for version 1
 
-- Автоматическое развёртывание или завершение ресурсов.
-- Прогнозирование цен с помощью ML.
-- Активное измерение частоты прерываний путём запуска инстансов.
-- Автоматическое копирование AMI, данных или секретов между регионами.
-- Сравнение AWS с другими облачными провайдерами.
-- Измерение задержки из нескольких географических точек в рамках одного запуска.
-- Гарантия наличия Spot-ёмкости: SPS является рекомендацией AWS, а не гарантией.
+- Automatically provisioning or terminating resources.
+- ML-based price forecasting.
+- Actively measuring interruption frequency by launching instances.
+- Automatically copying AMIs, data, or secrets between Regions.
+- Comparing AWS with other cloud providers.
+- Measuring latency from multiple geographic origins in a single run.
+- Guaranteeing Spot capacity; SPS is an AWS recommendation, not a guarantee.
 
-## 5. Пользовательские сценарии
+## 5. User scenarios
 
-### 5.1 Основной сценарий
+### 5.1 Primary scenario
 
-Пользователь задаёт типы инстансов, максимальный RTT, период анализа и ожидаемую длительность задачи. Инструмент возвращает лучший Region/AZ/type и ранжированный список альтернатив.
+The user specifies instance types, maximum RTT, analysis period, and expected workload duration. The tool returns the best Region/AZ/type and a ranked list of alternatives.
 
-### 5.2 Ограничение географических групп и отдельных регионов
+### 5.2 Restricting geographic groups and individual Regions
 
-Пользователь может заранее ограничить группы регионов масками, например включив все `us-*` регионы и `ca-central-1`, и при этом исключив `us-east-1` регион. По умолчанию включены все доступные в аккаунте регионы: `*`
+The user can restrict the search with patterns, for example by including all `us-*` Regions and `ca-central-1`, while excluding `us-east-1`. By default, every Region available to the account is included with `*`.
 
-### 5.3 Автоматизация
+### 5.3 Automation
 
-CI/CD или планировщик запускает команду с `--output json`, проверяет код возврата и использует структурированную рекомендацию на следующем шаге.
+A CI/CD system or scheduler runs the command with `--output json`, checks the exit code, and consumes the structured recommendation in a subsequent step.
 
-## 6. Интерфейс командной строки
+## 6. Command-line interface
 
-Предполагаемое имя команды:
+Primary command:
 
 ```shell
 spot-region-selector evaluate
 ```
 
-Дополнительные команды:
+Additional commands:
 
 ```shell
 spot-region-selector validate-config --config config.yml
@@ -72,17 +73,17 @@ spot-region-selector list-regions --config config.yml
 spot-region-selector latency --config config.yml
 ```
 
-Если `--config` не указан, команда автоматически читает `config.yml` из текущего рабочего каталога. Если файл по умолчанию отсутствует, команда завершается с кодом 2 и понятным сообщением. Явно заданный отсутствующий файл обрабатывается так же.
+If `--config` is omitted, the command reads `config.yml` from the current working directory. When the application is run without arguments and the default configuration file does not exist, it displays help and exits successfully. An explicitly specified missing configuration file is an error.
 
-Команда `latency` выполняет только discovery, исключение регионов и измерение RTT. Она не вызывает Spot Price History и Spot Placement Score, не требует настроек workload/pricing/placement и не строит ценовую рекомендацию. Результат сортируется по median RTT.
+The `latency` command performs only Region discovery, filtering, and RTT measurement. It does not call Spot Price History or Spot Placement Score, does not require workload/pricing/placement settings, and does not produce a price recommendation. Results are sorted by median RTT.
 
-CLI-флаги могут переопределять значения конфигурации. Приоритет значений:
+CLI flags override configuration values. Precedence is:
 
-1. CLI-флаг;
-2. конфигурационный файл;
-3. значение по умолчанию.
+1. CLI flag;
+2. configuration file;
+3. default value.
 
-Минимально необходимые флаги для `evaluate`:
+Minimum required flags for `evaluate`:
 
 ```text
 --config PATH
@@ -92,16 +93,15 @@ CLI-флаги могут переопределять значения конф
 --history-days NUMBER
 --duration-hours NUMBER
 --output table|json
---verbose
 ```
 
-Каждый параметр запуска, кроме пути к самому конфигурационному файлу и служебных флагов `--help`/`--version`, должен иметь эквивалентное поле в YAML. Команду также можно выбрать полем `run.mode`; явная CLI-подкоманда имеет приоритет. Таким образом, обычный запуск может состоять только из `spot-region-selector`, а поведение полностью определяется `config.yml`.
+Every runtime option except the path to the configuration file and the service flags `--help` and `--version` must have an equivalent YAML field. The command can also be selected with `run.mode`; an explicit CLI subcommand takes precedence. A normal invocation can therefore consist only of `spot-region-selector`, with all behavior defined in `config.yml`.
 
-## 7. Конфигурационный файл
+## 7. Configuration file
 
-Формат первой версии — YAML. Неизвестные поля считаются ошибкой, чтобы опечатки не приводили к незаметному изменению результата.
+Version 1 uses YAML. Unknown fields are errors so that typographical mistakes cannot silently change behavior.
 
-Пример полной конфигурации:
+Complete example:
 
 ```yaml
 version: 1
@@ -161,58 +161,58 @@ output:
   log_level: info
 ```
 
-### 7.1 Справочник параметров конфигурации
+### 7.1 Configuration reference
 
-| Поле | Назначение и неочевидная семантика |
+| Field | Purpose and non-obvious semantics |
 |---|---|
-| `version` | Версия схемы конфигурации, а не версия приложения. Для первой версии допустимо только `1`. |
-| `run.mode` | Режим `evaluate`, `latency`, `list-regions` или `validate-config`. CLI-подкоманда переопределяет поле. |
-| `aws.profile` | Имя профиля из стандартной AWS credentials/config chain. `null` означает стандартный выбор AWS SDK. |
-| `aws.discovery_region` | Регион, через endpoint которого вызывается глобальный по смыслу `DescribeRegions`; он не получает преимущество при ранжировании. |
-| `aws.include_opt_in_regions` | Разрешает рассматривать регионы со статусом `not-opted-in`; это не выполняет opt-in автоматически. |
-| `workload.instance_types` | Взаимозаменяемые допустимые типы. Итоговая рекомендация выбирает конкретный тип. |
-| `workload.product_descriptions` | Вариант ОС/лицензии Spot Price History. Значение влияет на цену и должно точно соответствовать значениям EC2 API. |
-| `workload.target_capacity` | Требуемое число единиц ёмкости для SPS, а не обязательно число инстансов; в v1 одна единица соответствует одному инстансу. |
-| `workload.duration_hours` | Ожидаемая продолжительность нагрузки, используемая для estimated compute cost. |
-| `regions.included_regions` | Allowlist точных Region ID или glob-масок. По умолчанию `["*"]`, то есть все доступные аккаунту регионы. |
-| `regions.excluded_regions` | Точные Region ID или glob-маски с `*`, например `eu-west-*`. |
-| `latency.warmup_attempts` | Число прогревочных запросов, которые не входят в статистику. По умолчанию `3`. |
-| `latency.attempts` | Число измеряемых запросов после прогрева. По умолчанию `5`. |
-| `latency.timeout_ms` | Timeout одной попытки, а не общий timeout запуска. |
-| `latency.concurrency` | Максимальное число одновременно проверяемых регионов. |
-| `latency.metric` | Метрика для порогового фильтра; `median` менее чувствительна к единичным выбросам. |
-| `latency.probe` | Протокол probe. В v1 обязательно `https`; это не ICMP ping. |
-| `pricing.history_days` | Глубина исторического окна до момента запуска, включая последнюю известную цену. |
-| `pricing.statistic` | В v1 обязательно `time_weighted_average`: цена взвешивается по длительности её действия. |
-| `pricing.currency` | Валюта отчёта. В v1 обязательно `USD`; автоматической конвертации нет. |
-| `placement.min_score` | Минимально допустимый SPS, где 10 означает наибольшую вероятность получить ёмкость, но не гарантию. |
-| `placement.failure_policy` | Что делать, если SPS получить невозможно: исключить, предупредить или игнорировать. Успешно полученный score ниже порога всё равно исключает регион. |
-| `ranking.price_tie_relative_percent` | Цены с относительной разницей не больше этого допуска считаются равными; тогда побеждает меньший RTT. |
-| `ranking.alternatives` | Максимальное количество альтернатив после основной рекомендации. |
-| `output.explain_exclusions` | Добавляет причины исключения; в JSON причины сохраняются всегда. |
-| `output.verbose` | Включает расширенную диагностику без credentials и токенов. Эквивалент `--verbose`. |
-| `output.log_level` | Минимальный уровень сообщений в stderr: `error`, `warning`, `info` или `debug`. По умолчанию `info`; `--verbose` является совместимым эквивалентом `debug`. |
+| `version` | Configuration schema version, not application version. Version 1 only accepts `1`. |
+| `run.mode` | `evaluate`, `latency`, `list-regions`, or `validate-config`. A CLI subcommand overrides it. |
+| `aws.profile` | Profile from the standard AWS credential/config chain. `null` uses normal AWS SDK resolution. |
+| `aws.discovery_region` | Region endpoint used for the logically global `DescribeRegions` call. It receives no ranking preference. |
+| `aws.include_opt_in_regions` | Allows `not-opted-in` Regions to be considered; it does not opt the account into them. |
+| `workload.instance_types` | Interchangeable eligible types. The recommendation selects a concrete type. |
+| `workload.product_descriptions` | OS/license variant used by Spot Price History. Values must exactly match the EC2 API values. |
+| `workload.target_capacity` | Capacity units requested for SPS. In version 1, one unit corresponds to one instance. |
+| `workload.duration_hours` | Expected workload duration used to estimate compute cost. |
+| `regions.included_regions` | Allowlist of exact Region IDs or glob patterns. Defaults to `["*"]`. |
+| `regions.excluded_regions` | Exact Region IDs or patterns containing `*`, such as `eu-west-*`. |
+| `latency.warmup_attempts` | Warm-up requests excluded from statistics. Defaults to `3`. |
+| `latency.attempts` | Measured requests after warm-up. Defaults to `5`. |
+| `latency.timeout_ms` | Timeout for one attempt, not the entire run. |
+| `latency.concurrency` | Maximum number of Regions measured concurrently. |
+| `latency.metric` | Threshold metric. `median` is less sensitive to isolated outliers. |
+| `latency.probe` | Probe protocol. Version 1 requires `https`; this is not ICMP ping. |
+| `pricing.history_days` | Historical window ending at invocation time, including the latest known price. |
+| `pricing.statistic` | Version 1 requires `time_weighted_average`. Prices are weighted by active duration. |
+| `pricing.currency` | Version 1 requires `USD`; no automatic currency conversion is performed. |
+| `placement.min_score` | Minimum SPS. A score of 10 indicates the highest likelihood, not a guarantee. |
+| `placement.failure_policy` | Behavior when SPS is unavailable: exclude, warn, or ignore. A successfully retrieved score below the minimum always excludes the Region. |
+| `ranking.price_tie_relative_percent` | Relative tolerance within which prices are tied; lower RTT wins a price tie. |
+| `ranking.alternatives` | Maximum alternatives after the primary recommendation. |
+| `output.explain_exclusions` | Adds exclusion reasons to table output; JSON always retains them. |
+| `output.verbose` | Compatibility switch for debug diagnostics; equivalent to `--verbose`. |
+| `output.log_level` | Minimum stderr level: `error`, `warning`, `info`, or `debug`. Defaults to `info`; `--verbose` maps to `debug`. |
 
-Параметры, не применимые к выбранному `run.mode`, разрешены и игнорируются. Для режима `latency` секции `workload`, `pricing`, `placement` и `ranking` могут отсутствовать.
+Fields irrelevant to the selected `run.mode` may be present and are ignored. In `latency` mode, the `workload`, `pricing`, `placement`, and `ranking` sections may be omitted.
 
-### 7.2 Правила включения и исключения регионов
+### 7.2 Region inclusion and exclusion rules
 
-Фильтрация выполняется до latency- и pricing-запросов. Сначала проверяется allowlist, затем exclusions.
+Filtering occurs before latency and pricing requests. The allowlist is evaluated first, then exclusions.
 
-- `included_regions` содержит полные Region ID или glob-маски. Значение `*` совпадает с любым обнаруженным регионом.
-- Регион включён в рассмотрение, если он совпал хотя бы с одним правилом из `included_regions`.
-- По умолчанию `included_regions` имеет значение `["*"]`; это означает «рассматривать все регионы, доступные credentials текущего аккаунта». Новые регионы AWS автоматически попадают в рассмотрение после discovery.
-- `included_regions` не может быть пустым. Для географической группы используется маска, например `eu-*`.
-- `excluded_regions` содержит полные Region ID или glob-маски в нижнем регистре.
-- В масках поддерживается только метасимвол `*`, означающий ноль или более любых символов. Сопоставление применяется ко всему Region ID, а не к его подстроке: `eu-west-*` совпадает с `eu-west-1` и `eu-west-12`, но не с `x-eu-west-1`.
-- Остальные glob-метасимволы (`?`, `[]`, `{}`) в v1 запрещены, чтобы конфигурация одинаково трактовалась на всех платформах.
-- Сравнение регистронезависимое; после загрузки значения нормализуются в lower case.
-- Дубликаты допустимы, но удаляются при нормализации.
-- Если регион совпал с несколькими правилами, в объяснении указываются все причины и все совпавшие шаблоны.
-- Исключения имеют безусловный приоритет над включениями и всеми остальными настройками.
-- GovCloud и China partitions по умолчанию не опрашиваются, если используемые credentials/partition и дальнейшая реализация явно их не поддерживают.
+- `included_regions` contains full Region IDs or glob patterns. `*` matches every discovered Region.
+- A Region is considered only if it matches at least one `included_regions` rule.
+- The default `["*"]` includes all Regions available to the current credentials, including newly discovered AWS Regions.
+- `included_regions` cannot be empty. Use a pattern such as `eu-*` for a geographic group.
+- `excluded_regions` contains full Region IDs or glob patterns normalized to lowercase.
+- Only the `*` metacharacter is supported. Matching covers the entire Region ID: `eu-west-*` matches `eu-west-1` but not `x-eu-west-1`.
+- Other glob metacharacters (`?`, `[]`, `{}`) are forbidden in version 1.
+- Matching is case-insensitive after normalization to lowercase.
+- Duplicate rules are allowed and removed during normalization.
+- If multiple rules match, all matching reasons and patterns are reported.
+- Exclusions unconditionally take precedence over inclusions and other settings.
+- GovCloud and China partitions are not queried by default unless the active credentials/partition and implementation explicitly support them.
 
-Пример:
+Example:
 
 ```yaml
 regions:
@@ -220,9 +220,9 @@ regions:
   excluded_regions: [us-east-1]
 ```
 
-Allowlist сначала допускает все регионы `us-*`, любой обнаруженный регион, совпавший с `eu-central-*` а также `ca-central-1`. Затем exclusions удаляют `us-east-1`.
+The allowlist admits all `us-*` Regions, discovered `eu-central-*` Regions, and `ca-central-1`; the exclusion then removes `us-east-1`.
 
-Пустые списки разрешены:
+Empty lists are allowed:
 
 ```yaml
 regions:
@@ -230,33 +230,33 @@ regions:
   excluded_regions: []
 ```
 
-## 8. Источники данных и AWS API
+## 8. Data sources and AWS APIs
 
-### 8.1 Список регионов
+### 8.1 Region list
 
-Используется EC2 `DescribeRegions(AllRegions=true)`. По умолчанию участвуют регионы со статусом `opt-in-not-required` и `opted-in`. Регионы `not-opted-in` допускаются только при `include_opt_in_regions: true`, но должны быть помечены как потенциально недоступные.
+Use EC2 `DescribeRegions(AllRegions=true)`. By default, only Regions with `opt-in-not-required` or `opted-in` status participate. `not-opted-in` Regions are included only when `include_opt_in_regions: true` and must be marked as potentially unavailable.
 
-### 8.2 История Spot-цен
+### 8.2 Spot price history
 
-Для каждого прошедшего latency-фильтр региона вызывается `DescribeSpotPriceHistory`:
+For each Region that passes the latency filter, call `DescribeSpotPriceHistory` with:
 
 - `StartTime = now - history_days`;
 - `EndTime = now`;
-- `InstanceTypes` из конфигурации;
-- `ProductDescriptions` из конфигурации;
-- обязательная обработка пагинации.
+- `InstanceTypes` from configuration;
+- `ProductDescriptions` from configuration;
+- complete pagination handling.
 
-Цена анализируется отдельно для каждой комбинации Region/AZ/instance type/product description. Денежные значения внутри программы представляются decimal-типом, а не binary float.
+Analyze prices independently for each Region/AZ/instance-type/product-description combination. Represent monetary values with a decimal type, not binary floating point.
 
 ### 8.3 Spot Placement Score
 
-При `placement.enabled: true` используется `GetSpotPlacementScores` для заданных instance types и `target_capacity`. Оценка относится к региону и не подменяет статистику конкретной AZ.
+When `placement.enabled: true`, use `GetSpotPlacementScores` for the configured instance types and `target_capacity`. The score applies to a Region and does not replace statistics for a specific AZ.
 
-Ограничения и throttling AWS API должны обрабатываться ограниченной параллельностью, exponential backoff с jitter и повторными попытками SDK.
+Handle AWS API limits and throttling with bounded concurrency, exponential backoff with jitter, and SDK retries.
 
-### 8.4 Права IAM
+### 8.4 IAM permissions
 
-Минимальный предполагаемый набор read-only действий:
+Minimum read-only actions:
 
 ```text
 ec2:DescribeRegions
@@ -264,46 +264,46 @@ ec2:DescribeSpotPriceHistory
 ec2:GetSpotPlacementScores
 ```
 
-Если проверка доступности типов будет реализована через отдельный API, соответствующее read-only разрешение добавляется в документацию и диагностическое сообщение.
+If instance-type availability is later checked through another API, document the additional read-only permission and include it in diagnostics.
 
-## 9. Измерение задержки
+## 9. Latency measurement
 
-### 9.1 Метод первой версии
+### 9.1 Version 1 method
 
-Метод по умолчанию — HTTPS-запрос к стабильному региональному AWS endpoint. ICMP не является методом по умолчанию, поскольку может блокироваться и не отражает прикладной маршрут.
+The default method is an HTTPS request to a stable regional AWS endpoint. ICMP is not the default because it can be blocked and may not represent the application route.
 
-Для каждого региона:
+For every Region:
 
-1. Разрешить DNS вне измеряемого интервала, если это позволяет реализация.
-2. Выполнить `warmup_attempts` прогревочных запросов, не включая их в статистику.
-3. Выполнить `attempts` измерений с индивидуальным `timeout_ms`.
-4. Зафиксировать длительность TCP/TLS/HTTP round trip либо общую длительность запроса согласно выбранной реализации.
-5. Рассчитать median и p95 успешных попыток.
+1. Resolve DNS outside the measured interval when the implementation permits.
+2. Perform `warmup_attempts` warm-up requests and exclude them from statistics.
+3. Perform `attempts` measurements with an individual `timeout_ms`.
+4. Record TCP/TLS/HTTP round-trip duration or total request duration, according to the implementation.
+5. Calculate median and p95 from successful measured attempts.
 
-Для фильтра используется `latency.metric`, по умолчанию median. Регион проходит фильтр, если значение `<= max_rtt_ms`.
+The threshold uses `latency.metric`, which defaults to median. A Region passes when the selected metric is `<= max_rtt_ms`.
 
-Endpoint обязан поддерживать безопасный запрос без изменения состояния. Конкретная схема endpoint-ов должна быть централизована и тестируема; невозможность построить или вызвать endpoint является ошибкой измерения, а не бесконечной задержкой.
+The endpoint must permit a safe, non-mutating request. Endpoint construction must be centralized and testable. Failure to construct or call an endpoint is a measurement error, not infinite latency.
 
-### 9.2 Ошибки измерения
+### 9.2 Measurement errors
 
-- Если успешных попыток меньше половины от `attempts`, регион исключается с причиной `latency_unavailable`.
-- Timeout одной попытки не завершает весь запуск.
-- Все результаты содержат число успешных и неуспешных попыток.
-- Измерение отражает маршрут от машины запуска инструмента, что явно указывается в отчёте.
+- If fewer than half of the measured `attempts` succeed, exclude the Region with `latency_unavailable`.
+- One timeout does not terminate the entire run.
+- Every result contains successful and unsuccessful attempt counts.
+- The report must state that measurements represent the route from the machine running the tool.
 
-## 10. Расчёт ценовых показателей
+## 10. Price metrics
 
-Spot Price History представляет моменты изменения цены. Среднее по числу записей использовать запрещено. Основная метрика — средняя цена, взвешенная по времени:
+Spot Price History contains price-change events. Averaging records by count is forbidden. The primary statistic is a time-weighted average:
 
 ```text
 TWA = sum(price_i * active_duration_i) / total_observed_duration
 ```
 
-Для каждой комбинации Candidate вычисляются:
+For every Candidate, calculate:
 
-- `latest_price` — последняя известная цена и время начала её действия;
-- `previous_price` — цена, непосредственно предшествовавшая последней;
-- `price_trend` — направление и величина последнего изменения;
+- `latest_price` and the time it became active;
+- `previous_price` immediately preceding the latest price;
+- `price_trend`, including direction and magnitude;
 - `time_weighted_average_price`;
 - `time_weighted_p50_price`;
 - `time_weighted_p95_price`;
@@ -312,7 +312,7 @@ TWA = sum(price_i * active_duration_i) / total_observed_duration
 - `observed_duration`;
 - `estimated_compute_cost = duration_hours * ranking_price`.
 
-Для первой версии:
+Version 1 uses:
 
 ```text
 ranking_price = 0.5 * latest_price
@@ -320,39 +320,39 @@ ranking_price = 0.5 * latest_price
               + 0.2 * time_weighted_p95_price
 ```
 
-Коэффициенты в версии 1 фиксированы и документируются в JSON-результате. В будущей версии они могут стать конфигурируемыми.
+These coefficients are fixed in version 1 and recorded in JSON. A future version may make them configurable.
 
-Если история покрывает меньше 90% запрошенного периода, Candidate сохраняется, но получает предупреждение `incomplete_price_history`. Если невозможно определить последнюю цену, Candidate исключается.
+If history covers less than 90% of the requested period, retain the Candidate with an `incomplete_price_history` warning. Exclude a Candidate when the latest price cannot be determined.
 
-### 10.1 Последняя цена и тенденция
+### 10.1 Latest price and trend
 
-Тенденция отражает последнее фактически наблюдаемое изменение Spot-цены, подобно биржевому тикеру. Записи сначала упорядочиваются по времени по возрастанию:
+The trend represents the most recently observed Spot price change, like a market ticker. Sort records chronologically and calculate:
 
 ```text
 delta = latest_price - previous_price
 delta_percent = delta / previous_price * 100
 ```
 
-Правила отображения:
+Display rules:
 
-| Условие | Значение JSON | Символ |
+| Condition | JSON value | Symbol |
 |---|---|---|
 | `delta > 0` | `up` | `↑` |
 | `delta < 0` | `down` | `↓` |
 | `delta = 0` | `flat` | `→` |
-| предыдущей цены нет | `unknown` | `?` |
+| no previous price | `unknown` | `?` |
 
-В таблице после стрелки отображаются абсолютное и процентное изменения, например `↑ +$0.003 (+7.7%)`. Цвет может применяться только как дополнительное оформление; смысл не должен зависеть от поддержки ANSI-цветов. В JSON сохраняются `direction`, `symbol`, `absolute_change`, `percent_change`, `latest_price_at` и `previous_price_at`.
+The table shows absolute and percentage change after the arrow, for example `↑ +$0.003 (+7.7%)`. Color may be supplementary, but meaning must not depend on ANSI support. JSON stores `direction`, `symbol`, `absolute_change`, `percent_change`, `latest_price_at`, and `previous_price_at`.
 
-Эта тенденция характеризует только последнее изменение, а не прогноз будущей цены и не общий тренд за всё историческое окно. Time-weighted average и p95 остаются отдельными показателями устойчивости цены.
+This trend describes only the latest observed change. It is neither a forecast nor a trend over the entire historical window. Time-weighted average and p95 remain separate stability indicators.
 
-## 11. Фильтрация и ранжирование
+## 11. Filtering and ranking
 
-Обязательный порядок обработки:
+Required processing order:
 
 ```text
 discover regions
--> normalize and apply exclusions
+-> normalize and apply inclusion/exclusion rules
 -> measure latency
 -> apply max RTT
 -> retrieve and validate prices
@@ -361,41 +361,41 @@ discover regions
 -> render result
 ```
 
-Candidate исключается, если:
+Exclude a Candidate when:
 
-- Region не совпал ни с одним правилом включения;
-- Region исключён точным правилом или glob-маской;
-- измерение RTT недоступно;
-- RTT выше лимита;
-- instance type или требуемый product description не имеет Spot-цены;
-- SPS ниже `min_score`, когда `failure_policy: exclude` или score успешно получен;
-- обязательный AWS API вернул неисправимую ошибку для этого кандидата.
+- its Region matches no inclusion rule;
+- its Region matches an exact exclusion or glob pattern;
+- RTT measurement is unavailable;
+- RTT exceeds the limit;
+- the instance type or product description has no Spot price;
+- SPS is below `min_score`;
+- a mandatory AWS API returns an unrecoverable error for the Candidate.
 
-### 11.1 Семантика Placement Score
+### 11.1 Placement Score semantics
 
-- `failure_policy: exclude` — отсутствие SPS исключает регион.
-- `failure_policy: warn` — отсутствие SPS оставляет регион и добавляет предупреждение.
-- `failure_policy: ignore` — ошибки SPS не влияют на результат, но остаются в verbose/JSON diagnostics.
-- Успешно полученный SPS ниже `min_score` всегда исключает регион.
+- `failure_policy: exclude` — missing SPS excludes the Region.
+- `failure_policy: warn` — missing SPS retains the Region and adds a warning.
+- `failure_policy: ignore` — SPS errors do not affect selection but remain in verbose/JSON diagnostics.
+- A successfully retrieved SPS below `min_score` always excludes the Region.
 
-### 11.2 Итоговая сортировка
+### 11.2 Final ordering
 
-Основная цель — минимальная ожидаемая compute-стоимость среди вариантов, прошедших ограничения.
+The primary objective is the lowest expected compute cost among candidates that satisfy mandatory constraints.
 
-Две цены считаются совпадающими, если относительная разница не превышает `ranking.price_tie_relative_percent` от меньшей цены. Внутри такой группы используются критерии:
+Two prices are tied when their relative difference does not exceed `ranking.price_tie_relative_percent` of the lower price. Within a tied group, order by:
 
-1. меньший median RTT;
-2. больший SPS, если известен;
-3. меньший time-weighted p95;
-4. лексикографически меньшие Region, AZ и instance type для детерминированности.
+1. lower median RTT;
+2. higher SPS, when known;
+3. lower time-weighted p95;
+4. lexicographically lower Region, AZ, and instance type for deterministic output.
 
-За пределами ценового допуска сортировка идёт по `estimated_compute_cost` по возрастанию.
+Outside the tie tolerance, sort by ascending `estimated_compute_cost`.
 
-Важно: стоимость передачи данных, EBS и потери от прерывания не включаются в численную модель версии 1. Отчёт обязан показывать это ограничение.
+Version 1 does not numerically model data transfer, EBS, or losses caused by interruption. The report must disclose this limitation.
 
-## 12. Вывод
+## 12. Output
 
-### 12.1 Табличный вывод
+### 12.1 Table output
 
 ```text
 REGION        AZ          TYPE        RTT_MED  LATEST   TREND              AVG_7D  P95_7D  EST_COST  SPS
@@ -406,9 +406,9 @@ Recommended: eu-north-1 / eun1-az2 / c7g.large
 Reason: lowest estimated cost among candidates with RTT <= 100 ms and SPS >= 6.
 ```
 
-AZ должна отображаться как имя и, если API позволяет получить стабильный AZ ID, также храниться в JSON. Имена AZ могут отображать разные физические зоны в разных AWS-аккаунтах.
+Display the AZ name and, when the API provides a stable AZ ID, retain that ID in JSON. AZ names can map to different physical zones in different AWS accounts.
 
-Для команды `latency` используется сокращённый вывод без ценовых колонок:
+The `latency` command uses abbreviated output without pricing columns:
 
 ```text
 REGION         RTT_MED  RTT_P95  SUCCESS  STATUS
@@ -417,11 +417,11 @@ eu-west-1       48 ms    61 ms    6/7      eligible
 eu-north-1     112 ms   130 ms    7/7      above_limit
 ```
 
-Режим RTT возвращает все измеренные регионы, включая превышающие лимит, чтобы результат был полезен как самостоятельный отчёт. Регионы, исключённые конфигурацией, показываются только при `output.explain_exclusions: true`.
+Latency mode returns every measured Region, including those above the threshold. Configuration-excluded Regions appear only when `output.explain_exclusions: true`.
 
 ### 12.2 JSON
 
-JSON должен быть версионирован и содержать как минимум:
+JSON is versioned and contains at least:
 
 ```json
 {
@@ -439,60 +439,60 @@ JSON должен быть версионирован и содержать ка
 }
 ```
 
-Для каждого исключённого региона сохраняются machine-readable reason code и текстовое пояснение. Секреты, access keys и session tokens никогда не выводятся.
+Every excluded Region includes a machine-readable reason code and human-readable explanation. Never output secrets, access keys, or session tokens.
 
-### 12.3 Средние значения по региону
+### 12.3 Region-level averages
 
-После детальной таблицы Region/AZ/type выводится отдельная региональная сводка без AZ. Кандидаты группируются по `Region + instance type + product description`, поэтому цены разных типов инстансов и вариантов лицензирования не смешиваются.
+After the detailed Region/AZ/type table, output a separate summary without AZ detail. Group Candidates by `Region + instance type + product description` so different instance types and license variants are never mixed.
 
-Для каждой группы по Availability Zones арифметически усредняются:
+For each group, calculate the arithmetic mean across Availability Zones for:
 
-- последняя цена;
+- latest price;
 - time-weighted historical average;
 - p95;
 - estimated compute cost;
-- последняя и предыдущая цены для определения общего направления тренда.
+- latest and previous prices used to determine aggregate trend direction.
 
-Сводка также содержит число вошедших AZ, RTT региона и SPS. В JSON она сохраняется в `regional_summaries`. Поле `average_p95_price` является средним значением AZ-level p95, а не p95 объединённого временного ряда всего региона.
+The summary also contains the number of included AZs, Region RTT, and SPS. JSON stores it in `regional_summaries`. `average_p95_price` is the mean of AZ-level p95 values, not the p95 of a combined Region-wide time series.
 
-## 13. Ошибки и коды возврата
+## 13. Errors and exit codes
 
-### 13.1 Сообщения о прогрессе
+### 13.1 Progress messages
 
-Прогресс и диагностика выводятся в stderr, а итоговая таблица или JSON — в stdout. Благодаря этому JSON можно безопасно перенаправлять в файл или передавать следующей команде.
+Write progress and diagnostics to stderr and the final table or JSON to stdout. This allows JSON to be redirected or piped safely.
 
-- `error` — только ошибки, из-за которых операция полностью или частично невозможна;
-- `warning` — восстанавливаемые ошибки отдельных AWS API/регионов и неполные данные;
-- `info` — текущий этап, число обнаруженных/отфильтрованных регионов, прогресс RTT `N/M`, запрос истории для очередного региона и итог;
-- `debug` — endpoint, отдельные результаты RTT, временные интервалы и подробности read-only AWS-запросов без секретов.
+- `error` — errors that make an operation wholly or partially impossible;
+- `warning` — recoverable per-Region/API errors and incomplete data;
+- `info` — current stage, discovered/filtered counts, RTT progress `N/M`, per-Region history requests, and completion;
+- `debug` — endpoints, individual RTT results, time intervals, and read-only AWS request details without secrets.
 
-Все сообщения содержат UTC timestamp и уровень. Credentials, токены и authorization headers запрещено писать на любом уровне.
+Every message contains a UTC timestamp and level. Credentials, tokens, and authorization headers are forbidden at every level.
 
-### 13.2 Коды возврата
+### 13.2 Exit codes
 
 ```text
-0  рекомендация успешно построена
-2  ошибка конфигурации или аргументов CLI
-3  ошибка AWS-аутентификации/авторизации
-4  ни один регион не прошёл обязательные фильтры
-5  недостаточно данных для рекомендации
-10 внутренняя ошибка программы
+0  recommendation built successfully, or help/validation completed successfully
+2  configuration or CLI argument error
+3  AWS authentication/authorization error
+4  no Region passed mandatory filters
+5  insufficient data for a recommendation
+10 internal application error
 ```
 
-Частичная ошибка одного региона не должна завершать весь анализ, пока остаются корректные кандидаты. При `--verbose` выводятся диагностические сведения без чувствительных данных.
+A partial failure in one Region must not terminate analysis while valid Candidates remain. `--verbose` diagnostics must not expose sensitive data.
 
-## 14. Нефункциональные требования
+## 14. Non-functional requirements
 
-- Поддержка Linux и macOS; Windows — желательна, но не обязательна для первой версии.
-- Python 3.12+ и официальный AWS SDK for Python (`boto3`) как предполагаемый стек.
-- Повторяемый JSON-результат при одинаковых входных данных и замороженном времени.
-- Сетевые операции выполняются параллельно с настраиваемым безопасным пределом.
-- Один зависший endpoint не должен задерживать весь запуск дольше заданного timeout/retry budget.
-- Логи не содержат AWS credentials, HTTP authorization headers или содержимое credential files.
-- Все timestamps хранятся и выводятся в UTC ISO 8601.
-- Денежные вычисления используют `Decimal`.
+- Support Linux and macOS; Windows support is desirable but not mandatory for version 1.
+- Support Python 3.10+ and use the official AWS SDK for Python (`boto3`).
+- Produce repeatable JSON for identical inputs and frozen time.
+- Run network operations concurrently with a configurable safe limit.
+- One stalled endpoint must not delay the entire run beyond its timeout/retry budget.
+- Logs must not contain AWS credentials, authorization headers, or credential-file contents.
+- Store and output timestamps as UTC ISO 8601.
+- Use `Decimal` for monetary calculations.
 
-## 15. Предлагаемая архитектура
+## 15. Proposed architecture
 
 ```text
 CLI
@@ -506,79 +506,81 @@ CLI
 └── Table/JSON renderer
 ```
 
-Внешние зависимости должны быть изолированы интерфейсами, чтобы unit-тесты не обращались к AWS и публичной сети.
+External dependencies must be isolated behind interfaces so unit tests never call AWS or the public network.
 
-## 16. Тестирование
+## 16. Testing
 
-### 16.1 Unit-тесты
+### 16.1 Unit tests
 
-Обязательные случаи:
+Required cases:
 
-- Маска `eu-*` исключает `eu-west-1` и `eu-central-1`, но не `us-east-1`.
-- Значения включения по умолчанию `*` допускают любой обнаруженный регион.
-- Include-маска `eu-*` допускает все регионы `eu`, а маска `us-east-*` дополнительно допускает соответствующие регионы `us`.
-- Регион вне allowlist получает причину `not_included` и не передаётся latency/pricing clients.
-- Исключение имеет приоритет над совпавшим включением.
-- Точное исключение `eu-west-1` не исключает `eu-west-2`.
-- Маска `eu-west-*` исключает все обнаруженные `eu-west-N`, но не `eu-central-1`.
-- Маска сопоставляется со всем Region ID; неподдерживаемые glob-метасимволы отклоняются.
-- Region ID и маски нормализуются по регистру.
-- Пустые маски и неподдерживаемые glob-метасимволы отклоняются.
-- Исключения применяются до вызовов latency/pricing clients.
-- Time-weighted average корректен для неравных интервалов.
-- Цена на границе временного окна корректно заполняет начало интервала.
-- Пагинация Spot Price History полностью обрабатывается.
-- RTT ровно на границе `max_rtt_ms` допускается.
-- Ценовая ничья разрешается меньшим RTT.
-- Последняя цена определяется по timestamp, а стрелка корректно отражает рост, падение, отсутствие изменения и нехватку истории.
-- Полная ничья разрешается детерминированно.
-- Ошибка одного региона не уничтожает результаты остальных.
-- JSON соответствует schema version 1.
+- `eu-*` excludes `eu-west-1` and `eu-central-1`, but not `us-east-1`.
+- Default inclusion `*` admits any discovered Region.
+- Include patterns combine correctly.
+- A Region outside the allowlist receives `not_included` and never reaches latency/pricing clients.
+- Exclusion takes precedence over inclusion.
+- Exact exclusion `eu-west-1` does not exclude `eu-west-2`.
+- `eu-west-*` excludes every discovered `eu-west-N` but not `eu-central-1`.
+- Patterns match the entire Region ID; unsupported metacharacters are rejected.
+- Region IDs and patterns are normalized by case.
+- Empty patterns are rejected.
+- Exclusions are applied before latency/pricing calls.
+- Three warm-up requests are excluded from five measured RTT requests.
+- Time-weighted average is correct for unequal intervals.
+- A price effective at the history-window boundary is handled correctly.
+- Spot Price History pagination is complete.
+- RTT exactly equal to `max_rtt_ms` is eligible.
+- Lower RTT resolves a price tie.
+- Latest price and trend arrows correctly represent up, down, flat, and unknown states.
+- Complete ties are deterministic.
+- A failure in one Region does not destroy results from others.
+- Region summaries average AZ-level values without mixing instance types.
+- JSON conforms to schema version 1.
 
-### 16.2 Интеграционные тесты
+### 16.2 Integration tests
 
-- AWS clients тестируются с botocore Stubber или эквивалентом.
-- Latency probe тестируется против локального HTTP(S)-сервера с управляемыми задержками и timeout.
-- Один opt-in и один excluded region проверяются на полном pipeline.
-- Режим `latency` проверяется на отсутствие вызовов pricing и placement clients.
+- Test AWS clients with Botocore Stubber or equivalent.
+- Test the latency probe against a local HTTP(S) server with controlled delay and timeout.
+- Test one opt-in and one excluded Region through the complete pipeline.
+- Verify that `latency` mode never calls pricing or placement clients.
 
 ### 16.3 Live smoke test
 
-Опциональный тест с реальными AWS credentials должен быть явно включаемым и никогда не запускаться автоматически в обычном CI.
+An optional test using real AWS credentials must require explicit opt-in and must never run automatically in normal CI.
 
-## 17. Критерии приёмки версии 1
+## 17. Version 1 acceptance criteria
 
-Версия 1 считается готовой, когда:
+Version 1 is complete when:
 
-1. Валидный `config.yml` из раздела 7 автоматически читается без `--config`, и все параметры обычного запуска задаются через него.
-2. Включения и исключения по точным Region ID и glob-маскам работают согласно разделу 7.2; по умолчанию рассматриваются все доступные аккаунту регионы.
-3. Для нескольких доступных регионов измеряется и отображается median RTT.
-4. Регионы выше `max_rtt_ms` не участвуют в ценовом ранжировании.
-5. Spot history собирается с пагинацией и преобразуется в time-weighted метрики.
-6. Итоговый выбор делается по стоимости, а ценовая ничья — по меньшему RTT.
-7. SPS учитывается либо его отсутствие обрабатывается согласно `failure_policy`.
-8. Табличный вывод содержит последнюю цену, время её получения/начала действия в подробностях и тенденцию со стрелкой.
-9. Команда или `run.mode: latency` строит самостоятельный RTT-отчёт без запросов цен и SPS.
-10. Табличный вывод объясняет рекомендацию.
-11. JSON содержит рекомендацию, альтернативы, последнюю цену, структурированный тренд, исключения и предупреждения.
-12. Все обязательные unit- и интеграционные тесты проходят без доступа к сети.
+1. A valid `config.yml` is loaded automatically without `--config`, and normal runtime parameters can be configured through it.
+2. Exact Region and glob inclusion/exclusion rules work as defined in section 7.2; all account-visible Regions are considered by default.
+3. Median RTT is measured and displayed for multiple Regions using three warm-ups and five measured requests.
+4. Regions above `max_rtt_ms` do not participate in price ranking.
+5. Spot history is fully paginated and converted to time-weighted metrics.
+6. Cost determines the selection, and lower RTT resolves a price tie.
+7. SPS is used or its absence is handled according to `failure_policy`.
+8. Table output contains the latest price, its timestamp/details, and an arrow trend.
+9. The `latency` command or `run.mode: latency` produces an independent RTT report without price/SPS calls.
+10. Table output explains the recommendation and includes Region-level averages.
+11. JSON contains the recommendation, alternatives, regional summaries, latest price, structured trend, exclusions, and warnings.
+12. All required unit and integration tests pass without network access.
 
-## 18. Этапы разработки
+## 18. Development stages
 
-1. Каркас CLI, YAML schema и валидатор.
-2. Discovery регионов, allowlist и исключения.
-3. HTTPS latency probe и конкурентное выполнение.
-4. Клиент Spot Price History и time-weighted расчёты.
+1. CLI scaffold, YAML schema, and validator.
+2. Region discovery, allowlist, and exclusions.
+3. Concurrent HTTPS latency probe.
+4. Spot Price History client and time-weighted calculations.
 5. Spot Placement Score.
-6. Фильтрация, ранжирование и объяснение решения.
-7. Табличный и JSON-вывод.
-8. Интеграционные тесты, документация IAM и примеры.
+6. Filtering, ranking, and decision explanation.
+7. Table and JSON output.
+8. Integration tests, IAM documentation, and examples.
 
-## 19. Открытые вопросы для следующих версий
+## 19. Open questions for future versions
 
-- Включать ли стоимость межрегиональной передачи исходных данных.
-- Оценивать ли ожидаемую потерю от прерывания через checkpoint interval.
-- Поддерживать ли требования к vCPU/RAM вместо фиксированного списка типов.
-- Выполнять ли probes из нескольких агентских точек и агрегировать пользовательский RTT.
-- Хранить ли локальную историю для анализа доступности и трендов дольше периода AWS API.
-- Поддерживать ли несколько валют с явным источником exchange rate.
+- Include inter-Region transfer cost for input data?
+- Estimate expected interruption loss from checkpoint interval?
+- Support vCPU/RAM requirements instead of fixed instance-type lists?
+- Run probes from multiple agents and aggregate user-facing RTT?
+- Store local history beyond the AWS API window for availability and trend analysis?
+- Support multiple currencies with an explicit exchange-rate source?

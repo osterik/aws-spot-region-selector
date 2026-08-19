@@ -1,14 +1,14 @@
 # AWS Spot Region Selector
 
-A CLI tool that selects an AWS Region and Availability Zone for short-lived Spot workloads by balancing network latency, historical prices, and Spot Placement Score within configured geographic areas and regions.
+CLI-инструмент выбирает AWS Region и Availability Zone для краткосрочной Spot-нагрузки по задержке, истории цен и Spot Placement Score для заданных географических зон\регионов.
 
-The application measures RTT to selected regions. For regions that satisfy the maximum-latency constraint, it retrieves Spot Price History and Spot Placement Score, then reports a recommendation and alternatives.
+Приложение измеряет RTT до выбранных регионов; затем для тех, которые удовлетворяют условию по максимальному времени доступа, запрашивает Spot Price History и Spot Placement Score а затем покажет рекомендацию и альтернативы.
 
-See [SPECIFICATION.md](SPECIFICATION.md) for the complete requirements and calculation rules. The Russian documentation is available in [README_RU.md](README_RU.md).
+Полные требования и правила расчёта находятся в [SPECIFICATION_RU.md](SPECIFICATION_RU.md). Английская документация доступна в [README.md](README.md).
 
-## Quick start
+## Быстрый старт
 
-Requirements: Python 3.10+ and AWS credentials with the read-only permissions listed below.
+Требования: Python 3.10+ и AWS credentials с read-only разрешениями из следующего раздела.
 
 ```shell
 python3 -m venv .venv
@@ -16,7 +16,7 @@ source .venv/bin/activate
 python -m pip install .
 ```
 
-Edit the provided `config.yml`. At minimum, specify the instance types and regions to consider:
+Отредактируйте готовый `config.yml`, как минимум указав типы инстансов и рассматриваемые регионы:
 
 ```yaml
 workload:
@@ -27,35 +27,35 @@ regions:
   excluded_regions: []
 ```
 
-Main commands:
+Основные команды:
 
 ```shell
-# Validate ./config.yml without calling AWS:
+# Проверить конфигурацию ./config.yml (без обращения к AWS):
 spot-region-selector validate-config
 
-# List regions selected for analysis:
+# Получить список регионов для анализа:
 spot-region-selector list-regions
 
-# Measure RTT to selected regions:
+# Измерить RTT до выбранных регионов:
 spot-region-selector latency
 
-# Run the full evaluation:
+# Запустить оценку:
 spot-region-selector evaluate
 ```
 
-## IAM permissions
+## IAM-разрешения
 
-The application makes read-only requests and does not create, modify, or delete AWS resources. The minimum IAM policy must include:
+Приложение выполняет только read-only запросы и не создаёт, не изменяет и не удаляет AWS-ресурсы. Минимальная IAM policy должна включать:
 
 ```text
-ec2:DescribeRegions           # List regions available to the current AWS account
-ec2:DescribeSpotPriceHistory  # Retrieve current and historical Spot prices by Region/AZ/type
-ec2:GetSpotPlacementScores    # Estimate the likelihood of obtaining the requested Spot capacity
+ec2:DescribeRegions           # Получение регионов, доступных текущему AWS-аккаунту
+ec2:DescribeSpotPriceHistory  # Получение текущих и исторических Spot-цен по Region/AZ/type
+ec2:GetSpotPlacementScores    # Оценка вероятности получить требуемую Spot-ёмкость
 ```
 
-`ec2:GetSpotPlacementScores` can be omitted when `placement.enabled=false`.
+`ec2:GetSpotPlacementScores` можно исключить из policy, если в конфигурации задано `placement.enabled=false`
 
-## Including and excluding regions
+## Включение/исключение регионов
 
 ```yaml
 regions:
@@ -65,13 +65,15 @@ regions:
   excluded_regions:
     - eu-central-*
     - us-east-1
+
 ```
 
-This example permits all `eu-*` and `us-east-*` regions except all `eu-central-*` regions and the specific `us-east-1` region. Exclusions always take precedence. By default, `included_regions` contains `"*"`, which selects every region available to the current AWS credentials.
+Пример разрешает все регионы `eu-*` и регионы `us-east-*`, кроме всех регионов `eu-central-*` и конкретно `us-east-1`.
+Исключения всегда имеют приоритет. По умолчанию `included_regions` содержит `"*"`, то есть рассматриваются все регионы, доступные AWS credentials аккаунта.
 
-## Example
+## Пример
 
-Configuration:
+Конфигурация:
 
 ```yaml
 regions:
@@ -81,8 +83,8 @@ regions:
 workload:
   instance_types: [t3.medium, t4g.medium]
   product_descriptions: [Linux/UNIX]
-  target_capacity: 1                  # 1 instance
-  duration_hours: 1                   # for 1 hour
+  target_capacity: 1                  # 1 инстанс
+  duration_hours: 1                   # на 1 час
 
 latency:
   max_rtt_ms: 1000
@@ -91,7 +93,7 @@ output:
   format: table
 ```
 
-Abbreviated output example (prices are illustrative and change over time):
+Сокращённый пример вывода (цены иллюстративны и меняются со временем):
 
 ```text
 REGION        AZ             TYPE        RTT_MED   LATEST   TREND               AVG        P95      EST_COST   SPS
@@ -151,11 +153,11 @@ Excluded:
 ...
 ```
 
-The first table shows individual candidates by Availability Zone. The second averages all eligible AZ prices separately for each `Region + instance type + product description` combination.
+Первая таблица показывает отдельные кандидаты по Availability Zone. Вторая усредняет цены всех прошедших фильтры AZ отдельно для каждой комбинации `Region + instance type + product description`.
 
-## Development
+## Разработка
 
-Install the project in editable mode with development dependencies:
+Для локальной разработки установите проект в editable-режиме с dev-зависимостями:
 
 ```shell
 python3 -m venv .venv
@@ -164,17 +166,17 @@ python -m pip install -e '.[dev]'
 pre-commit install
 ```
 
-### Pre-commit checks
+### Проверки перед коммитом
 
-After `pre-commit install`, every local commit runs:
+После `pre-commit install` каждый ручной коммит запускает:
 
-- YAML/TOML, merge-conflict, large-file, and whitespace checks;
-- Ruff lint with safe automatic fixes;
+- проверки YAML/TOML, конфликтов слияния, больших файлов и whitespace;
+- Ruff lint с безопасными автоисправлениями;
 - Ruff formatter;
-- Gitleaks secret scanning;
-- the complete pytest suite.
+- Gitleaks для поиска случайно добавленных credentials, токенов и других секретов;
+- полный набор pytest.
 
-Run all checks manually:
+Запуск вручную для всего репозитория:
 
 ```shell
 pre-commit run --all-files
