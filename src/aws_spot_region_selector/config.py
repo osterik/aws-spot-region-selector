@@ -115,7 +115,7 @@ def _section(name: str, cls: type, data: Any):
         raise ConfigError(f"Invalid section '{name}': {exc}") from exc
 
 
-def load_config(path: str | Path = "config.yml") -> Config:
+def load_config(path: str | Path = "config.yaml") -> Config:
     try:
         import yaml
     except ImportError as exc:

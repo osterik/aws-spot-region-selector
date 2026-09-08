@@ -2,9 +2,9 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from aws_spot_price_selector.models import Candidate, LatencyResult, PricePoint
-from aws_spot_price_selector.pricing import calculate_price_stats
-from aws_spot_price_selector.ranking import rank_candidates
+from aws_spot_region_selector.models import Candidate, LatencyResult, PricePoint
+from aws_spot_region_selector.pricing import calculate_price_stats
+from aws_spot_region_selector.ranking import rank_candidates
 
 
 def candidate(region, latency, price):
@@ -37,6 +37,16 @@ class RankingTests(unittest.TestCase):
         slow = candidate("eu-west-1", 70, "1")
         fast = candidate("eu-central-1", 20, "1.005")
         self.assertIs(rank_candidates([slow, fast], 1)[0], fast)
+
+    def test_complete_tie_is_deterministic(self):
+        west = candidate("eu-west-1", 20, "1")
+        central = candidate("eu-central-1", 20, "1")
+
+        first = rank_candidates([west, central], 1)
+        second = rank_candidates([central, west], 1)
+
+        self.assertEqual([item.region for item in first], ["eu-central-1", "eu-west-1"])
+        self.assertEqual([item.region for item in second], ["eu-central-1", "eu-west-1"])
 
 
 if __name__ == "__main__":

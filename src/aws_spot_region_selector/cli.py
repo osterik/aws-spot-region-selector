@@ -17,7 +17,7 @@ from .output import render
 from .pipeline import evaluate, latency_only
 
 COMMANDS = {"evaluate", "latency", "list-regions", "validate-config"}
-DEFAULT_CONFIG = "./config.yml"
+DEFAULT_CONFIG = "./config.yaml"
 LOGGER = logging.getLogger(__name__)
 
 
@@ -39,33 +39,34 @@ def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(
         prog="spot-region-selector",
         description=(
-            "Выбирает AWS-регион для Spot-нагрузки по задержке, цене и Spot Placement Score."
+            "Select an AWS Region for a Spot workload using latency, price, "
+            "and Spot Placement Score."
         ),
         epilog=(
-            "Примеры:\n"
+            "Examples:\n"
             "  spot-region-selector evaluate\n"
-            "  spot-region-selector latency -c ./config.yml\n"
+            "  spot-region-selector latency -c ./config.yaml\n"
             "  spot-region-selector evaluate -i t4g.medium,c7g.large -o json\n\n"
-            "Параметры CLI переопределяют значения из файла конфигурации."
+            "CLI options override values from the configuration file."
         ),
         formatter_class=HelpFormatter,
         add_help=False,
     )
-    result._positionals.title = "команды"
-    result._optionals.title = "опции"
+    result._positionals.title = "commands"
+    result._optionals.title = "options"
     result.add_argument(
         "-h",
         "--help",
         action="help",
-        help="показать эту справку и завершить работу",
+        help="show this help message and exit",
     )
     result.add_argument(
         "command",
         nargs="?",
         choices=sorted(COMMANDS),
         help=(
-            "режим работы: evaluate — полная оценка; latency — только RTT; "
-            "list-regions — список регионов; validate-config — проверка конфигурации"
+            "execution mode: evaluate performs a full evaluation; latency measures only RTT; "
+            "list-regions lists regions; validate-config validates configuration"
         ),
     )
     result.add_argument(
@@ -73,81 +74,82 @@ def parser() -> argparse.ArgumentParser:
         "--config",
         default=DEFAULT_CONFIG,
         metavar="CONFIG",
-        help="путь к файлу конфигурации, ./config.yml по умолчанию",
+        help="configuration file path; defaults to ./config.yaml",
     )
     result.add_argument(
         "-p",
         "--profile",
         metavar="PROFILE",
-        help="имя AWS-профиля; переопределяет aws.profile из конфигурации",
+        help="AWS profile name; overrides aws.profile from configuration",
     )
     result.add_argument(
         "-i",
         "--instance-types",
         metavar="TYPES",
-        help="типы EC2 через запятую, например t4g.medium,c7g.large",
+        help="comma-separated EC2 instance types, for example t4g.medium,c7g.large",
     )
     result.add_argument(
         "-P",
         "--product-descriptions",
         metavar="PRODUCTS",
-        help='описания продуктов Spot API через запятую, например "Linux/UNIX"',
+        help='comma-separated Spot API product descriptions, for example "Linux/UNIX"',
     )
     result.add_argument(
         "-r",
         "--max-rtt-ms",
         type=float,
         metavar="MS",
-        help="максимально допустимый RTT в миллисекундах",
+        help="maximum allowed RTT in milliseconds",
     )
     result.add_argument(
         "-H",
         "--history-days",
         type=int,
         metavar="DAYS",
-        help="глубина анализа Spot Price History в днях",
+        help="Spot Price History analysis window in days",
     )
     result.add_argument(
         "-t",
         "--duration-hours",
         type=float,
         metavar="HOURS",
-        help="ожидаемая продолжительность нагрузки в часах",
+        help="expected workload duration in hours",
     )
     result.add_argument(
         "-a",
         "--alternatives",
         type=int,
         metavar="COUNT",
-        help="максимальное число альтернатив после основной рекомендации",
+        help="maximum alternatives after the primary recommendation",
     )
     result.add_argument(
         "-o",
         "--output",
         choices=["table", "json"],
         metavar="FORMAT",
-        help="формат итогового stdout: table или json",
+        help="result format written to stdout: table or json",
     )
     result.add_argument(
         "-l",
         "--log-level",
+        type=str.lower,
         choices=["error", "warning", "info", "debug"],
         metavar="LEVEL",
-        help="уровень сообщений в stderr: error, warning, info или debug",
+        help="stderr logging level: error, warning, info, or debug (case-insensitive)",
     )
     result.add_argument(
         "-v",
         "--verbose",
         action="store_true",
         default=None,
-        help="включить подробные debug-сообщения; эквивалент --log-level debug",
+        help="enable detailed debug messages; equivalent to --log-level debug",
     )
     result.add_argument(
         "-V",
         "--version",
         action="version",
         version=__version__,
-        help="показать версию приложения и завершить работу",
+        help="show the application version and exit",
     )
     return result
 

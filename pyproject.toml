@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aws-spot-price-selector"
+name = "aws-spot-region-selector"
 version = "0.1.0"
 description = "Select an AWS region using Spot prices, placement probability, and network latency"
 readme = "README.md"
@@ -21,7 +21,7 @@ dev = [
 ]
 
 [project.scripts]
-spot-region-selector = "aws_spot_price_selector.cli:main"
+spot-region-selector = "aws_spot_region_selector.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

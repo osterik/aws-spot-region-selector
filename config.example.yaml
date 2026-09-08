@@ -1,0 +1,82 @@
+# Configuration schema version. Only version 1 is currently supported.
+version: 1
+
+run:
+  # Execution mode: evaluate, latency, list-regions, or validate-config.
+  # An explicit CLI command overrides this value.
+  mode: evaluate
+
+aws:
+  # Standard AWS profile name. null uses the AWS SDK default credential chain.
+  profile: null
+  # Region endpoint used for DescribeRegions; it receives no ranking preference.
+  discovery_region: us-east-1
+  # Discover not-opted-in Regions without enabling them in the account.
+  include_opt_in_regions: false
+
+workload:
+  # Interchangeable instance types; the recommendation selects one type and AZ.
+  instance_types: [c7a.large, c7i.large, c7g.large]
+  # Must exactly match ProductDescription values returned by the EC2 Spot API.
+  product_descriptions: [Linux/UNIX]
+  # Capacity requested from Spot Placement Score. In v1, one unit is one instance.
+  target_capacity: 1
+  # Expected workload duration in hours, used to estimate compute cost.
+  duration_hours: 3
+
+regions:
+  # Allowlist of complete Region IDs and glob masks. "*" selects all visible Regions.
+  # Multiple entries are combined with OR; only the "*" wildcard is supported.
+  included_regions: ["*"]
+  # Denylist with the same syntax. Exclusions always override inclusions.
+  excluded_regions: []
+
+latency:
+  # Maximum RTT in milliseconds according to latency.metric.
+  max_rtt_ms: 100
+  # Warm-up requests excluded from median and p95 calculations.
+  warmup_attempts: 3
+  # Requests included in latency statistics after warm-up.
+  attempts: 5
+  # Timeout for one request in milliseconds, not a total application timeout.
+  timeout_ms: 1500
+  # Maximum number of Regions measured concurrently.
+  concurrency: 8
+  # Threshold metric: median or p95. Median is less sensitive to isolated spikes.
+  metric: median
+  # Version 1 supports only HTTPS application RTT, not ICMP ping.
+  probe: https
+
+pricing:
+  # Spot Price History window ending at application start, in days.
+  history_days: 7
+  # Average price is weighted by how long each price was effective; v1 supports only this value.
+  statistic: time_weighted_average
+  # Version 1 supports only USD and performs no currency conversion.
+  currency: USD
+
+placement:
+  # Request Spot Placement Score from AWS.
+  enabled: true
+  # Minimum score from 1 to 10; even 10 does not guarantee capacity.
+  min_score: 6
+  # SPS failure policy: exclude, warn, or ignore. A retrieved score below min_score
+  # excludes the Region under every policy.
+  failure_policy: warn
+
+ranking:
+  # Relative percentage difference within which prices are considered tied.
+  # Lower median RTT wins a price tie.
+  price_tie_relative_percent: 1.0
+  # Maximum alternatives shown after the primary recommendation.
+  alternatives: 5
+
+output:
+  # Result format written to stdout: table or json. Progress is written to stderr.
+  format: table
+  # Show exclusions in table output; JSON always contains them.
+  explain_exclusions: true
+  # Compatibility shortcut for debug logging; output.log_level is preferred.
+  verbose: false
+  # Minimum stderr log level: error, warning, info, or debug.
+  log_level: info

@@ -1,13 +1,13 @@
 import unittest
 
-from aws_spot_price_selector.config import (
+from aws_spot_region_selector.config import (
     Config,
     RegionsConfig,
     excluded_by,
     included_by,
     validate_config,
 )
-from aws_spot_price_selector.errors import ConfigError
+from aws_spot_region_selector.errors import ConfigError
 
 
 class RegionExclusionTests(unittest.TestCase):

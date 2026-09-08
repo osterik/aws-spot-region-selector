@@ -6,7 +6,7 @@ Russian version: [SPECIFICATION_RU.md](SPECIFICATION_RU.md)
 
 ## 1. Purpose
 
-`aws-spot-price-selector` is a command-line tool that selects a preferred AWS Region for a short-lived EC2 Spot Instance workload. The selection balances network latency from the machine running the tool, Spot cost, price stability, and the likelihood of obtaining the requested capacity.
+`aws-spot-region-selector` is a command-line tool that selects a preferred AWS Region for a short-lived EC2 Spot Instance workload. The selection balances network latency from the machine running the tool, Spot cost, price stability, and the likelihood of obtaining the requested capacity.
 
 The tool only analyzes options and returns a recommendation. It does not create EC2 instances, Spot Fleets, Auto Scaling Groups, or any other AWS resources.
 
@@ -68,12 +68,12 @@ spot-region-selector evaluate
 Additional commands:
 
 ```shell
-spot-region-selector validate-config --config config.yml
-spot-region-selector list-regions --config config.yml
-spot-region-selector latency --config config.yml
+spot-region-selector validate-config --config config.yaml
+spot-region-selector list-regions --config config.yaml
+spot-region-selector latency --config config.yaml
 ```
 
-If `--config` is omitted, the command reads `config.yml` from the current working directory. When the application is run without arguments and the default configuration file does not exist, it displays help and exits successfully. An explicitly specified missing configuration file is an error.
+If `--config` is omitted, the command reads `config.yaml` from the current working directory. When the application is run without arguments and the default configuration file does not exist, it displays help and exits successfully. An explicitly specified missing configuration file is an error.
 
 The `latency` command performs only Region discovery, filtering, and RTT measurement. It does not call Spot Price History or Spot Placement Score, does not require workload/pricing/placement settings, and does not produce a price recommendation. Results are sorted by median RTT.
 
@@ -95,7 +95,7 @@ Minimum required flags for `evaluate`:
 --output table|json
 ```
 
-Every runtime option except the path to the configuration file and the service flags `--help` and `--version` must have an equivalent YAML field. The command can also be selected with `run.mode`; an explicit CLI subcommand takes precedence. A normal invocation can therefore consist only of `spot-region-selector`, with all behavior defined in `config.yml`.
+Every runtime option except the path to the configuration file and the service flags `--help` and `--version` must have an equivalent YAML field. The command can also be selected with `run.mode`; an explicit CLI subcommand takes precedence. A normal invocation can therefore consist only of `spot-region-selector`, with all behavior defined in `config.yaml`.
 
 ## 7. Configuration file
 
@@ -398,23 +398,30 @@ Version 1 does not numerically model data transfer, EBS, or losses caused by int
 ### 12.1 Table output
 
 ```text
-REGION        AZ          TYPE        RTT_MED  LATEST   TREND              AVG_7D  P95_7D  EST_COST  SPS
-eu-north-1    eun1-az2    c7g.large    62 ms    $0.029   ↓ -$0.002 (-6.5%)  $0.029  $0.031  $0.089    9
-eu-central-1  euc1-az2    c7a.large    31 ms    $0.042   ↑ +$0.003 (+7.7%)  $0.041  $0.044  $0.126    8
+REGION        AZ  TYPE       RTT_MED  LATEST  TREND                AVG      P95      EST_COST  SPS
+eu-north-1    a   c7g.large  62.0 ms  $0.0290 ↓ -$0.0020 (-6.5%)  $0.0290  $0.0310  $0.0890   9
+eu-central-1  b   c7a.large  31.0 ms  $0.0420 ↑ +$0.0030 (+7.7%)  $0.0410  $0.0440  $0.1260   8
 
-Recommended: eu-north-1 / eun1-az2 / c7g.large
+Recommended: eu-north-1 / a / c7g.large
 Reason: lowest estimated cost among candidates with RTT <= 100 ms and SPS >= 6.
+
+Regional averages across Availability Zones:
+REGION       TYPE       AZS  RTT_MED  AVG_LATEST  AVG_TREND            AVG_HIST  AVG_P95  AVG_EST  SPS
+eu-north-1   c7g.large  3    62.0 ms  $0.0300     ↓ -$0.0010 (-3.2%)  $0.0305   $0.0320  $0.0910  9
+
+Excluded:
+- eu-west-1: above_limit (RTT 112.0 ms above limit 100.0 ms (median))
 ```
 
-Display the AZ name and, when the API provides a stable AZ ID, retain that ID in JSON. AZ names can map to different physical zones in different AWS accounts.
+Table output displays only the suffix of the AZ name (`a` for `eu-west-1a`). JSON retains the complete account-relative AZ name. All monetary values in tables contain exactly four digits after the decimal point; JSON retains full decimal precision.
 
 The `latency` command uses abbreviated output without pricing columns:
 
 ```text
 REGION         RTT_MED  RTT_P95  SUCCESS  STATUS
-eu-central-1    31 ms    39 ms    7/7      eligible
-eu-west-1       48 ms    61 ms    6/7      eligible
-eu-north-1     112 ms   130 ms    7/7      above_limit
+eu-central-1    31 ms    39 ms    5/5      eligible
+eu-west-1       48 ms    61 ms    4/5      eligible
+eu-north-1     112 ms   130 ms    5/5      above_limit
 ```
 
 Latency mode returns every measured Region, including those above the threshold. Configuration-excluded Regions appear only when `output.explain_exclusions: true`.
@@ -439,7 +446,7 @@ JSON is versioned and contains at least:
 }
 ```
 
-Every excluded Region includes a machine-readable reason code and human-readable explanation. Never output secrets, access keys, or session tokens.
+Every excluded Region includes a machine-readable reason code and human-readable explanation. An `above_limit` explanation includes the measured RTT, configured limit, unit, and selected metric. `diagnostics` is reserved for non-secret machine-readable diagnostic information and is an empty object when none is available. Never output secrets, access keys, or session tokens.
 
 ### 12.3 Region-level averages
 
@@ -552,7 +559,7 @@ An optional test using real AWS credentials must require explicit opt-in and mus
 
 Version 1 is complete when:
 
-1. A valid `config.yml` is loaded automatically without `--config`, and normal runtime parameters can be configured through it.
+1. A valid `config.yaml` is loaded automatically without `--config`, and normal runtime parameters can be configured through it.
 2. Exact Region and glob inclusion/exclusion rules work as defined in section 7.2; all account-visible Regions are considered by default.
 3. Median RTT is measured and displayed for multiple Regions using three warm-ups and five measured requests.
 4. Regions above `max_rtt_ms` do not participate in price ranking.

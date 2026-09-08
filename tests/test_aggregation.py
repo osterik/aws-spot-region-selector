@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from aws_spot_price_selector.aggregation import summarize_regions
-from aws_spot_price_selector.models import Candidate, LatencyResult, PricePoint
-from aws_spot_price_selector.pricing import calculate_price_stats
+from aws_spot_region_selector.aggregation import summarize_regions
+from aws_spot_region_selector.models import Candidate, LatencyResult, PricePoint
+from aws_spot_region_selector.pricing import calculate_price_stats
 
 
 def make_candidate(az: str, previous: str, latest: str) -> Candidate:

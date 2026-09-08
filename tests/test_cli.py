@@ -1,7 +1,7 @@
 import logging
 
-from aws_spot_price_selector.cli import apply_overrides, log_run_parameters, parser, run
-from aws_spot_price_selector.config import Config
+from aws_spot_region_selector.cli import apply_overrides, log_run_parameters, parser, run
+from aws_spot_region_selector.config import Config
 
 
 def test_product_description_and_alternatives_overrides():
@@ -28,7 +28,7 @@ def test_short_options_match_long_options():
         [
             "evaluate",
             "-c",
-            "custom.yml",
+            "custom.yaml",
             "-p",
             "production",
             "-i",
@@ -46,12 +46,12 @@ def test_short_options_match_long_options():
             "-o",
             "json",
             "-l",
-            "debug",
+            "DEBUG",
             "-v",
         ]
     )
 
-    assert args.config == "custom.yml"
+    assert args.config == "custom.yaml"
     assert args.profile == "production"
     assert args.instance_types == "t4g.medium"
     assert args.product_descriptions == "Linux/UNIX"
@@ -111,3 +111,15 @@ def test_no_arguments_without_default_config_prints_help(tmp_path, monkeypatch, 
     assert "usage: spot-region-selector" in captured.out
     assert "--config CONFIG" in captured.out
     assert captured.err == ""
+
+
+def test_help_is_in_english(capsys):
+    try:
+        parser().parse_args(["--help"])
+    except SystemExit as exc:
+        assert exc.code == 0
+
+    help_text = capsys.readouterr().out
+    assert "Select an AWS Region" in help_text
+    assert "commands:" in help_text
+    assert "configuration file path" in help_text

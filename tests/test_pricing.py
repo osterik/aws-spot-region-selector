@@ -2,8 +2,8 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from aws_spot_price_selector.models import PricePoint
-from aws_spot_price_selector.pricing import calculate_price_stats
+from aws_spot_region_selector.models import PricePoint
+from aws_spot_region_selector.pricing import calculate_price_stats
 
 UTC = timezone.utc
 
@@ -45,6 +45,23 @@ class PriceStatsTests(unittest.TestCase):
         stats = calculate_price_stats([point(start + timedelta(hours=5), "1")], start, end)
         self.assertTrue(stats.incomplete_history)
         self.assertEqual(stats.observed_seconds, 5 * 3600)
+
+    def test_price_effective_before_window_covers_window_boundary(self):
+        start = datetime(2026, 8, 1, tzinfo=UTC)
+        end = start + timedelta(hours=4)
+
+        stats = calculate_price_stats(
+            [
+                point(start - timedelta(hours=1), "1"),
+                point(start + timedelta(hours=2), "3"),
+            ],
+            start,
+            end,
+        )
+
+        self.assertEqual(stats.observed_seconds, 4 * 3600)
+        self.assertEqual(stats.time_weighted_average_price, Decimal("2"))
+        self.assertFalse(stats.incomplete_history)
 
 
 if __name__ == "__main__":

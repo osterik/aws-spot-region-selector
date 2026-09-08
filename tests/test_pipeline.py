@@ -1,12 +1,13 @@
+import json
 import unittest
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import patch
 
-from aws_spot_price_selector.config import Config
-from aws_spot_price_selector.models import LatencyResult, PricePoint, RegionInfo
-from aws_spot_price_selector.output import render_evaluation, render_json
-from aws_spot_price_selector.pipeline import evaluate, latency_only
+from aws_spot_region_selector.config import Config
+from aws_spot_region_selector.models import LatencyResult, PricePoint, RegionInfo
+from aws_spot_region_selector.output import render_evaluation, render_json
+from aws_spot_region_selector.pipeline import evaluate, latency_only
 
 
 class FakeClient:
@@ -45,8 +46,20 @@ class EvaluationClient:
         ]
 
 
+class PartiallyFailingEvaluationClient(EvaluationClient):
+    def spot_price_history(self, region, instance_types, products, start, end):
+        if region == "eu-central-1":
+            raise RuntimeError("simulated regional failure")
+        return super().spot_price_history(region, instance_types, products, start, end)
+
+
+class PlacementFailingEvaluationClient(EvaluationClient):
+    def placement_scores(self, instance_types, target_capacity):
+        raise RuntimeError("simulated placement failure")
+
+
 class LatencyPipelineTests(unittest.TestCase):
-    @patch("aws_spot_price_selector.pipeline.measure_regions")
+    @patch("aws_spot_region_selector.pipeline.measure_regions")
     def test_latency_mode_does_not_request_price_or_placement(self, measure):
         measure.return_value = [LatencyResult("eu-west-1", 20, 25, 7, 7, "eligible")]
         config = Config()
@@ -63,7 +76,7 @@ class LatencyPipelineTests(unittest.TestCase):
         measured_regions = measure.call_args.args[0]
         self.assertEqual([item.name for item in measured_regions], ["eu-west-1"])
 
-    @patch("aws_spot_price_selector.pipeline.measure_regions")
+    @patch("aws_spot_region_selector.pipeline.measure_regions")
     def test_only_explicitly_included_regions_are_measured(self, measure):
         measure.return_value = [LatencyResult("eu-west-1", 20, 25, 7, 7, "eligible")]
         config = Config()
@@ -77,7 +90,7 @@ class LatencyPipelineTests(unittest.TestCase):
         self.assertEqual(result.exclusions[0].region, "us-east-1")
         self.assertEqual(result.exclusions[0].reason, "not_included")
 
-    @patch("aws_spot_price_selector.pipeline.measure_regions")
+    @patch("aws_spot_region_selector.pipeline.measure_regions")
     def test_rtt_exclusion_includes_measured_value(self, measure):
         measure.return_value = [
             LatencyResult("eu-central-1", 120.25, 145.75, 5, 5, "above_limit"),
@@ -97,7 +110,59 @@ class LatencyPipelineTests(unittest.TestCase):
             render_evaluation(result, config),
         )
 
-    @patch("aws_spot_price_selector.pipeline.measure_regions")
+    @patch("aws_spot_region_selector.pipeline.measure_regions")
+    def test_p95_rtt_exclusion_reports_selected_metric(self, measure):
+        measure.return_value = [
+            LatencyResult("eu-central-1", 80, 120.25, 5, 5, "above_limit"),
+            LatencyResult("eu-west-1", 40, 45, 5, 5, "eligible"),
+        ]
+        config = Config()
+        config.workload.instance_types = ["t4g.medium"]
+        config.regions.excluded_regions = ["us-*"]
+        config.latency.metric = "p95"
+
+        result = evaluate(EvaluationClient(), config)
+
+        exclusion = next(item for item in result.exclusions if item.region == "eu-central-1")
+        self.assertEqual(exclusion.detail, "RTT 120.2 ms above limit 100.0 ms (p95)")
+
+    @patch("aws_spot_region_selector.pipeline.measure_regions")
+    def test_failure_in_one_region_preserves_other_results(self, measure):
+        measure.return_value = [
+            LatencyResult("eu-central-1", 20, 25, 5, 5, "eligible"),
+            LatencyResult("eu-west-1", 40, 45, 5, 5, "eligible"),
+        ]
+        config = Config()
+        config.workload.instance_types = ["t4g.medium"]
+        config.regions.excluded_regions = ["us-*"]
+
+        result = evaluate(PartiallyFailingEvaluationClient(), config)
+
+        self.assertEqual(result.recommendation.region, "eu-west-1")
+        exclusion = next(item for item in result.exclusions if item.region == "eu-central-1")
+        self.assertEqual(exclusion.reason, "pricing_unavailable")
+
+    @patch("aws_spot_region_selector.pipeline.measure_regions")
+    def test_ignored_placement_failure_remains_in_json_diagnostics(self, measure):
+        measure.return_value = [
+            LatencyResult("eu-central-1", 20, 25, 5, 5, "eligible"),
+            LatencyResult("eu-west-1", 40, 45, 5, 5, "eligible"),
+        ]
+        config = Config()
+        config.workload.instance_types = ["t4g.medium"]
+        config.regions.excluded_regions = ["us-*"]
+        config.placement.failure_policy = "ignore"
+
+        result = evaluate(PlacementFailingEvaluationClient(), config)
+        payload = json.loads(render_json(result, config))
+
+        self.assertEqual(
+            payload["diagnostics"]["placement_score_error"],
+            "simulated placement failure",
+        )
+        self.assertEqual(payload["warnings"], [])
+
+    @patch("aws_spot_region_selector.pipeline.measure_regions")
     def test_full_evaluation_includes_latest_price_trend_and_json(self, measure):
         measure.return_value = [
             LatencyResult("eu-central-1", 20, 25, 7, 7, "eligible"),
@@ -115,9 +180,18 @@ class LatencyPipelineTests(unittest.TestCase):
         self.assertEqual(result.recommendation.prices.trend.symbol, "↓")
         self.assertEqual(len(result.regional_summaries), 2)
         rendered = render_json(result, config)
-        self.assertIn('"direction": "down"', rendered)
-        self.assertIn('"latest_price": "0.020"', rendered)
-        self.assertIn('"regional_summaries": [', rendered)
+        payload = json.loads(rendered)
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["mode"], "evaluate")
+        self.assertEqual(payload["recommendation"]["prices"]["latest_price"], "0.020")
+        self.assertEqual(payload["recommendation"]["prices"]["trend"]["direction"], "down")
+        self.assertIsInstance(payload["alternatives"], list)
+        self.assertIsInstance(payload["regional_summaries"], list)
+        self.assertIsInstance(payload["latencies"], list)
+        self.assertIsInstance(payload["excluded_regions"], list)
+        self.assertIsInstance(payload["warnings"], list)
+        self.assertEqual(payload["diagnostics"], {})
+        self.assertEqual(payload["recommendation"]["availability_zone"], "eu-west-1a")
         table = render_evaluation(result, config)
         self.assertIn("Regional averages across Availability Zones:", table)
         self.assertIn("AVG_LATEST", table)

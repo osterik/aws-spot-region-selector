@@ -26,6 +26,7 @@ class EvaluationResult:
     regional_summaries: list[RegionalSummary] = field(default_factory=list)
     exclusions: list[Exclusion] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    diagnostics: dict[str, str] = field(default_factory=dict)
 
 
 def discover_and_filter(client, config: Config) -> tuple[list[RegionInfo], list[Exclusion]]:
@@ -180,4 +181,5 @@ def evaluate(client, config: Config, now: datetime | None = None) -> EvaluationR
         regional_summaries=summarize_regions(ranked),
         exclusions=exclusions,
         warnings=warnings,
+        diagnostics={"placement_score_error": score_error} if score_error else {},
     )

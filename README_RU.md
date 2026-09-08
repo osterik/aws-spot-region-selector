@@ -11,12 +11,10 @@ CLI-инструмент выбирает AWS Region и Availability Zone для
 Требования: Python 3.10+ и AWS credentials с read-only разрешениями из следующего раздела.
 
 ```shell
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install .
+make init
 ```
 
-Отредактируйте готовый `config.yml`, как минимум указав типы инстансов и рассматриваемые регионы:
+Отредактируйте готовый `config.yaml`, как минимум указав типы инстансов и рассматриваемые регионы:
 
 ```yaml
 workload:
@@ -30,7 +28,7 @@ regions:
 Основные команды:
 
 ```shell
-# Проверить конфигурацию ./config.yml (без обращения к AWS):
+# Проверить конфигурацию ./config.yaml (без обращения к AWS):
 spot-region-selector validate-config
 
 # Получить список регионов для анализа:
@@ -156,6 +154,16 @@ Excluded:
 Первая таблица показывает отдельные кандидаты по Availability Zone. Вторая усредняет цены всех прошедших фильтры AZ отдельно для каждой комбинации `Region + instance type + product description`.
 
 ## Разработка
+
+Основные команды репозитория:
+
+```shell
+make init          # создать .venv, установить dev-зависимости и сохранить/создать config.yaml
+make test          # запустить pytest
+make lint          # запустить Ruff lint
+make format-check  # проверить форматирование Ruff
+make run           # запустить с ./config.yaml; переопределения передаются через ARGS='...'
+```
 
 Для локальной разработки установите проект в editable-режиме с dev-зависимостями:
 

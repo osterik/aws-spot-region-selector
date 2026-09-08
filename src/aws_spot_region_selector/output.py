@@ -170,6 +170,7 @@ def render_json(result: EvaluationResult, config: Config) -> str:
         "latencies": result.latencies,
         "excluded_regions": result.exclusions,
         "warnings": result.warnings,
+        "diagnostics": result.diagnostics,
     }
     return json.dumps(jsonable(payload), indent=2, ensure_ascii=False, sort_keys=True)
 

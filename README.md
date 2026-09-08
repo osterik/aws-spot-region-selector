@@ -11,12 +11,10 @@ See [SPECIFICATION.md](SPECIFICATION.md) for the complete requirements and calcu
 Requirements: Python 3.10+ and AWS credentials with the read-only permissions listed below.
 
 ```shell
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install .
+make init
 ```
 
-Edit the provided `config.yml`. At minimum, specify the instance types and regions to consider:
+Edit the provided `config.yaml`. At minimum, specify the instance types and regions to consider:
 
 ```yaml
 workload:
@@ -30,7 +28,7 @@ regions:
 Main commands:
 
 ```shell
-# Validate ./config.yml without calling AWS:
+# Validate ./config.yaml without calling AWS:
 spot-region-selector validate-config
 
 # List regions selected for analysis:
@@ -154,6 +152,16 @@ Excluded:
 The first table shows individual candidates by Availability Zone. The second averages all eligible AZ prices separately for each `Region + instance type + product description` combination.
 
 ## Development
+
+Common repository commands:
+
+```shell
+make init          # create .venv, install dev dependencies, and preserve/create config.yaml
+make test          # run pytest
+make lint          # run Ruff lint checks
+make format-check  # verify Ruff formatting
+make run           # run with ./config.yaml; pass overrides with ARGS='...'
+```
 
 Install the project in editable mode with development dependencies:
 
